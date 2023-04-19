@@ -192,20 +192,23 @@ void NIDAQmx::connect()
 		*/
 
 		// Get device sample rates
+
+		/*
 		NIDAQ::float64 smin;
-		NIDAQ::DAQmxGetDevAIMinRate(STR2CHR(deviceName), &smin);
+		NIDAQ::DAQmxGetDevAOMinRate(STR2CHR(deviceName), &smin);
 		LOGD("Min sample rate: ", smin);
 
 		NIDAQ::float64 smaxs;
-		NIDAQ::DAQmxGetDevAIMaxSingleChanRate(STR2CHR(deviceName), &smaxs);
+		NIDAQ::DAQmxGetDevAOMaxSingleChanRate(STR2CHR(deviceName), &smaxs);
 		LOGD("Max single channel sample rate: ", smaxs);
 
 		NIDAQ::float64 smaxm;
-		NIDAQ::DAQmxGetDevAIMaxMultiChanRate(STR2CHR(deviceName), &smaxm);
+		NIDAQ::DAQmxGetDevAOMaxMultiChanRate(STR2CHR(deviceName), &smaxm);
 		LOGD("Max multi channel sample rate: ", smaxm);
+		*/
 
 		NIDAQ::float64 data[512];
-		NIDAQ::DAQmxGetDevAIVoltageRngs(STR2CHR(deviceName), &data[0], sizeof(data));
+		NIDAQ::DAQmxGetDevAOVoltageRngs(STR2CHR(deviceName), &data[0], sizeof(data));
 
 		// Get available voltage ranges
 		device->voltageRanges.clear();
@@ -226,13 +229,15 @@ void NIDAQmx::connect()
 		//NIDAQ::DAQmxGetDevAIPhysicalChans(STR2CHR(device->getName()), &ai_channel_data[0], sizeof(ai_channel_data));
 		NIDAQ::DAQmxGetDevAOPhysicalChans(STR2CHR(device->getName()), &ai_channel_data[0], sizeof(ai_channel_data));
 
+		LOGD(ai_channel_data);
+
 		StringArray channel_list;
-		channel_list.addTokens(&ai_channel_data[0], ", ", "\"");
+		channel_list.addTokens(&ai_channel_data[0], ", ");
 
 		device->numAOChannels = 0;
 		aout.clear();
 
-		LOGD("Detected ", channel_list.size(), " analog input channels");
+		LOGD("Detected ", channel_list.size(), " analog output channels");
 
 		for (int i = 0; i < channel_list.size(); i++)
 		{
@@ -299,7 +304,6 @@ void NIDAQmx::connect()
 		//NIDAQ::DAQmxGetDevTerminals(STR2CHR(deviceName), &data[0], sizeof(data)); //gets all terminals
 		//NIDAQ::DAQmxGetDevDIPorts(STR2CHR(deviceName), &data[0], sizeof(data));	//gets line name
 		NIDAQ::DAQmxGetDevDOLines(STR2CHR(deviceName), &di_channel_data[0], sizeof(di_channel_data));	//gets ports on line
-		LOGD("Found digital inputs: ");
 
 		channel_list.clear();
 		channel_list.addTokens(&di_channel_data[0], ", ", "\"");
@@ -315,7 +319,7 @@ void NIDAQmx::connect()
 			{
 				String name = channel_list[i].toRawUTF8();
 
-				LOGD("Found digital line: ", name);
+				//LOGD("Found digital line: ", name);
 
 				dout.add(new OutputChannel(name));
 
@@ -325,14 +329,16 @@ void NIDAQmx::connect()
 			}
 		}
 
+		LOGD("Found ", dout.size(), " digital output channels");
+
 		// Set sample rate range
-		NIDAQ::float64 smax = smaxm;
+		//NIDAQ::float64 smax = smaxm;
 		/*
 		if (!device->simAISamplingSupported)
 			smax /= numActiveAnalogOutputs;
 		*/
 
-		device->sampleRateRange = SettingsRange(smin, smax);
+		//device->sampleRateRange = SettingsRange(smin, smax);
 
 Error:
 

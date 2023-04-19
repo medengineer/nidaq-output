@@ -57,6 +57,8 @@ public:
 
 private:
 
+    NIDAQOutput* processor;
+
     std::unique_ptr<ComboBox> deviceSelector;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(NIDAQOutputEditor);

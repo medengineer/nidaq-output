@@ -49,7 +49,7 @@ public:
 	int getDeviceIndex() { return deviceIndex; };
 
     /** Set the current device index */
-    void setDeviceIndex(int deviceIndex);
+    void setDevice(int deviceIndex);
 
     /** Opens a connection to NIDAQ device */
     int openConnection();

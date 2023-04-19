@@ -34,7 +34,7 @@ NIDAQOutput::NIDAQOutput()
 	dm->scanForDevices();
 
 	LOGC("Num devices found: ", dm->getNumAvailableDevices());
-    LOGC("Current device name: ", dm->getDeviceAtIndex(0)->getName());
+    LOGC("Current device name: ", dm->getDeviceAtIndex(deviceIndex)->getName());
 
 	openConnection();
 
@@ -66,15 +66,16 @@ Array<NIDAQDevice*> NIDAQOutput::getDevices()
 	return deviceList;
 }
 
-void NIDAQOutput::setDeviceIndex(int index)
+void NIDAQOutput::setDevice(int index)
 {
 	deviceIndex = index;
+    openConnection();
 }
 
 int NIDAQOutput::openConnection()
 {
 
-	mNIDAQ = new NIDAQmx(dm->getDeviceAtIndex(0));
+	mNIDAQ = new NIDAQmx(dm->getDeviceAtIndex(deviceIndex));
 
     //TODO: Might need buffer for analog output 
 	// mNIDAQ->aoBuffer = sourceBuffers.getLast();
@@ -127,11 +128,10 @@ void NIDAQOutput::handleTTLEvent(TTLEventPtr event)
 {
 
     //TODO: Trigger output based on current settings
-
-    /*
     const int eventBit = event->getLine() + 1;
     DataStream* stream = getDataStream(event->getStreamId());
 
+    /* TODO Restore gate? 
     if (eventBit == int((*stream)["gate_line"]))
     {
         if (event->getState())
@@ -139,27 +139,36 @@ void NIDAQOutput::handleTTLEvent(TTLEventPtr event)
         else
             gateIsOpen = false;
     }
+    */
 
-    if (gateIsOpen)
+    if (true)
     {
-        if (eventBit == int((*stream)["input_line"]))
+        if (eventBit == 0) // int((*stream)["input_line"]))
         {
+
+            LOGC("Got event!");
 
             if (event->getState())
             {
-                NIDAQ.sendDigital(
+                LOGC("Detected on");
+                /* TODO Add NIDAQ sendDigital function
+                mNIDAQmx->sendDigital(
                     getParameter("output_pin")->getValue(),
-                    ARD_LOW);
+                    0);
+                */
             }
             else
             {
+                LOGC("Detected off");
+                /*
                 NIDAQ.sendDigital(
                     getParameter("output_pin")->getValue(),
-                    ARD_HIGH);
+                    1);
+                */
             }
         }
     }
-    */
+
 }
 
 

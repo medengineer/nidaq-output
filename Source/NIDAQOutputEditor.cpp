@@ -30,21 +30,20 @@ NIDAQOutputEditor::NIDAQOutputEditor(GenericProcessor* parentNode)
 
 {
 
-    desiredWidth = 240;
+    processor = (NIDAQOutput*)getProcessor();
 
-    StringArray devices;
-    devices.add("None");
-    devices.add("Dev1");
-    devices.add("Dev2");
+    desiredWidth = 240;
 
     deviceSelector = std::make_unique<ComboBox>();
     deviceSelector->setBounds(15, 40, 110, 20);
     deviceSelector->addListener(this);
     
-    for (int i = 1; i <= devices.size(); i++)
-        deviceSelector->addItem(devices[i-1],i);
-
-    deviceSelector->setSelectedId(1, dontSendNotification);
+    Array<NIDAQDevice*> devices = processor->getDevices();
+	for (int i = 0; i < devices.size(); i++)
+	{
+		deviceSelector->addItem(devices[i]->productName, i + 1);
+	}
+	deviceSelector->setSelectedItemIndex(processor->getDeviceIndex(), false);
 
     addAndMakeVisible(deviceSelector.get());
 
@@ -57,14 +56,11 @@ NIDAQOutputEditor::NIDAQOutputEditor(GenericProcessor* parentNode)
 
 void NIDAQOutputEditor::comboBoxChanged(ComboBox* comboBoxThatHasChanged)
 {
-    /*
     if (comboBoxThatHasChanged == deviceSelector.get())
     {
-        NIDAQOutput* processor = (NIDAQOutput*) getProcessor();
-        processor->setDevice(deviceSelector->getText());
+        processor->setDevice(deviceSelector->getSelectedItemIndex());
         CoreServices::updateSignalChain(this);
     }
-    */
 }
 
 void NIDAQOutputEditor::updateDevice(String deviceName)
