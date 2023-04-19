@@ -21,12 +21,23 @@
 
 */
 
+#include "NIDAQComponents.h"
 #include "NIDAQOutput.h"
 #include "NIDAQOutputEditor.h"
 
 NIDAQOutput::NIDAQOutput()
     : GenericProcessor("NIDAQ Output")
 {
+
+    dm = new NIDAQmxDeviceManager();
+
+	dm->scanForDevices();
+
+	LOGC("Num devices found: ", dm->getNumAvailableDevices());
+    LOGC("Current device name: ", dm->getDeviceAtIndex(0)->getName());
+
+	openConnection();
+
     /* TODO: Will need both categorical and int params for analog/digital out*/
     /*
     addIntParameter(Parameter::GLOBAL_SCOPE, "output_pin", "The NIDAQ pin to use", 13, 0, 13);
@@ -45,9 +56,59 @@ AudioProcessorEditor* NIDAQOutput::createEditor()
     return editor.get();
 }
 
+Array<NIDAQDevice*> NIDAQOutput::getDevices()
+{
+	Array<NIDAQDevice*> deviceList;
+
+	for (int i = 0; i < dm->getNumAvailableDevices(); i++)
+		deviceList.add(dm->getDeviceAtIndex(i));
+
+	return deviceList;
+}
+
+void NIDAQOutput::setDeviceIndex(int index)
+{
+	deviceIndex = index;
+}
+
+int NIDAQOutput::openConnection()
+{
+
+	mNIDAQ = new NIDAQmx(dm->getDeviceAtIndex(0));
+
+    //TODO: Might need buffer for analog output 
+	// mNIDAQ->aoBuffer = sourceBuffers.getLast();
+
+	sampleRateIndex = mNIDAQ->sampleRates.size() - 1;
+	setSampleRate(sampleRateIndex);
+
+	voltageRangeIndex = mNIDAQ->device->voltageRanges.size() - 1;
+	setVoltageRange(voltageRangeIndex);
+
+	return 0;
+
+}
+
+void NIDAQOutput::setSampleRate(int rateIndex)
+{
+	sampleRateIndex = rateIndex;
+	mNIDAQ->setSampleRate(rateIndex);
+}
+
+Array<SettingsRange> NIDAQOutput::getVoltageRanges()
+{
+	return mNIDAQ->device->voltageRanges;
+}
+
+void NIDAQOutput::setVoltageRange(int rangeIndex)
+{
+	voltageRangeIndex = rangeIndex;
+	mNIDAQ->setVoltageRange(rangeIndex);
+}
+
 void NIDAQOutput::updateSettings()
 {
-    //isEnabled = deviceSelected;
+    isEnabled = outputAvailable;
 }
 
 bool NIDAQOutput::stopAcquisition()

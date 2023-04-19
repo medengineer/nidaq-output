@@ -30,28 +30,28 @@ NIDAQOutputEditor::NIDAQOutputEditor(GenericProcessor* parentNode)
 
 {
 
-    /*
     desiredWidth = 240;
 
-    vector <ofSerialDeviceInfo> devices = serial.getDeviceList();
+    StringArray devices;
+    devices.add("None");
+    devices.add("Dev1");
+    devices.add("Dev2");
 
     deviceSelector = std::make_unique<ComboBox>();
     deviceSelector->setBounds(15, 40, 110, 20);
     deviceSelector->addListener(this);
-    deviceSelector->addItem("Device",1);
     
-    for (int i = 0; i < devices.size(); i++)
-    {
-        deviceSelector->addItem(devices[i].getDevicePath(),i+2);
-    }
+    for (int i = 1; i <= devices.size(); i++)
+        deviceSelector->addItem(devices[i-1],i);
 
     deviceSelector->setSelectedId(1, dontSendNotification);
+
     addAndMakeVisible(deviceSelector.get());
 
-    addComboBoxParameterEditor("output_pin", 15, 70);
-    addComboBoxParameterEditor("input_line", 144, 35);
-    addComboBoxParameterEditor("gate_line", 144, 80);
-    */
+    //addComboBoxParameterEditor("output_pin", 15, 70);
+    //addComboBoxParameterEditor("input_line", 144, 35);
+    //addComboBoxParameterEditor("gate_line", 144, 80);
+    
 }
 
 
