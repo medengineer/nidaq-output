@@ -474,7 +474,7 @@ void NIDAQmx::sendDigital(int channelIdx, bool state)
 
 	if (dout[channelIdx]->isEnabled() && taskHandlesDO.size())
 	{
-		if (state) data[0] ^= 0xFF; //invert bits
+		if (state) data[0] = 1 << channelIdx; //data[0] ^= 0xFF; //invert all bits
 		DAQmxErrChk(NIDAQ::DAQmxWriteDigitalU8(taskHandlesDO[0], 1, 1, 10.0, DAQmx_Val_GroupByChannel, data, &write, nullptr));
 	}
 

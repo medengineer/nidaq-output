@@ -131,24 +131,10 @@ void NIDAQOutput::process (AudioBuffer<float>& buffer)
 void NIDAQOutput::handleTTLEvent(TTLEventPtr event)
 {
 
-    //TODO: Trigger output based on current settings
     const int eventBit = event->getLine() + 1;
     DataStream* stream = getDataStream(event->getStreamId());
 
-    if (true)
-    {
-        if (eventBit == 1) // int((*stream)["input_line"]))
-        {
-            if (event->getState())
-            {
-                mNIDAQ->sendDigital(0, 1);
-            }
-            else
-            {
-                mNIDAQ->sendDigital(0, 0);
-            }
-        }
-    }
+    mNIDAQ->sendDigital(eventBit, event->getState());
 
 }
 
