@@ -43,6 +43,7 @@ NIDAQOutputEditor::NIDAQOutputEditor(GenericProcessor* parentNode)
 	{
 		deviceSelector->addItem(devices[i]->productName, i + 1);
 	}
+    deviceSelector->setSelectedId(processor->getDeviceIndex() + 1, dontSendNotification);
     addAndMakeVisible(deviceSelector.get());
 
     //addComboBoxParameterEditor("output_pin", 15, 70);

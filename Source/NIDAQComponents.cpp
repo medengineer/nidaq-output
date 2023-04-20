@@ -372,15 +372,7 @@ void NIDAQmx::startTasks()
 	NIDAQ::int32	error = 0;
 	char			errBuff[ERR_BUFF_SIZE] = { '\0' };
 
-	if (taskHandlesDO.size() > 0)
-	{
-		for (auto& taskHandle : taskHandlesDO)
-		{
-			NIDAQ::DAQmxStopTask(taskHandle);
-			NIDAQ::DAQmxClearTask(taskHandle);
-		}
-		taskHandlesDO.clear();
-	}
+	clearTasks();
 
 	char ports[2048];
 	NIDAQ::DAQmxGetDevDOPorts(STR2CHR(device->getName()), &ports[0], sizeof(ports));
@@ -441,6 +433,34 @@ Error:
 	return;
 }
 
+void NIDAQmx::clearTasks()
+{
+
+	NIDAQ::int32	error = 0;
+	char			errBuff[ERR_BUFF_SIZE] = { '\0' };
+
+	if (taskHandlesDO.size() > 0)
+	{
+		for (auto& taskHandle : taskHandlesDO)
+		{
+			NIDAQ::DAQmxStopTask(taskHandle);
+			NIDAQ::DAQmxClearTask(taskHandle);
+		}
+		taskHandlesDO.clear();
+	}
+
+Error:
+
+	if (DAQmxFailed(error))
+		NIDAQ::DAQmxGetExtendedErrorInfo(errBuff, ERR_BUFF_SIZE);
+
+	if (DAQmxFailed(error))
+		LOGE("DAQmx Error: ", errBuff);
+	fflush(stdout);
+
+	return;
+}
+
 void NIDAQmx::sendDigital(int channelIdx, bool state)
 {
 
@@ -455,7 +475,6 @@ void NIDAQmx::sendDigital(int channelIdx, bool state)
 	if (dout[channelIdx]->isEnabled() && taskHandlesDO.size())
 	{
 		if (state) data[0] ^= 0xFF; //invert bits
-		LOGC("NIDAQ writing digital line ", channelIdx, " to ", state, " (", data[0], "");
 		DAQmxErrChk(NIDAQ::DAQmxWriteDigitalU8(taskHandlesDO[0], 1, 1, 10.0, DAQmx_Val_GroupByChannel, data, &write, nullptr));
 	}
 

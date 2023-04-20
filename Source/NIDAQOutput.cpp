@@ -120,7 +120,7 @@ bool NIDAQOutput::startAcquisition()
 
 bool NIDAQOutput::stopAcquisition()
 {
-    //TODO: Set everything low
+    mNIDAQ->clearTasks();
     return true;
 }
 
@@ -132,8 +132,6 @@ void NIDAQOutput::process (AudioBuffer<float>& buffer)
 
 void NIDAQOutput::handleTTLEvent(TTLEventPtr event)
 {
-
-    LOGC("Got TTL event on line: ", event->getLine() + 1);
 
     //TODO: Trigger output based on current settings
     const int eventBit = event->getLine() + 1;
@@ -156,17 +154,11 @@ void NIDAQOutput::handleTTLEvent(TTLEventPtr event)
 
             if (event->getState())
             {
-                LOGC("Detected on, sending on...");
                 mNIDAQ->sendDigital(0, 1);
-                    //getParameter("output_pin")->getValue(),
-                    //0);
             }
             else
             {
-                LOGC("Detected off, sending off...");
                 mNIDAQ->sendDigital(0, 0);
-                    //getParameter("output_pin")->getValue(),
-                    //1);
             }
         }
     }

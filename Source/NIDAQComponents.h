@@ -195,6 +195,7 @@ public:
 	uint32 getActiveDigitalLines();
 
 	void startTasks();
+	void clearTasks();
 
 	void sendDigital(int channelIdx, bool state);
 
