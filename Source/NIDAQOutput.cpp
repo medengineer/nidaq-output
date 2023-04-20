@@ -25,30 +25,21 @@
 #include "NIDAQOutput.h"
 #include "NIDAQOutputEditor.h"
 
-NIDAQOutput::NIDAQOutput()
-    : GenericProcessor("NIDAQ Output")
+NIDAQOutput::NIDAQOutput() : GenericProcessor("NIDAQ Output")
 {
 
     dm = new NIDAQmxDeviceManager();
 
-	dm->scanForDevices();
+    dm->scanForDevices();
 
-	LOGC("Num devices found: ", dm->getNumAvailableDevices());
+    LOGC("Num devices found: ", dm->getNumAvailableDevices());
     LOGC("Current device name: ", dm->getDeviceAtIndex(deviceIndex)->getName());
 
-	openConnection();
+    openConnection();
 
-    /* TODO: Will need both categorical and int params for analog/digital out*/
-    /*
-    addIntParameter(Parameter::GLOBAL_SCOPE, "output_pin", "The NIDAQ pin to use", 13, 0, 13);
-    addIntParameter(Parameter::STREAM_SCOPE, "input_line", "The TTL line for triggering output", 1, 1, 16);
-    addIntParameter(Parameter::STREAM_SCOPE, "gate_line", "The TTL line for gating the output", 0, 0, 16);
-    */
 }
 
-NIDAQOutput::~NIDAQOutput()
-{
-}
+NIDAQOutput::~NIDAQOutput() {}
 
 AudioProcessorEditor* NIDAQOutput::createEditor()
 {
@@ -58,53 +49,53 @@ AudioProcessorEditor* NIDAQOutput::createEditor()
 
 Array<NIDAQDevice*> NIDAQOutput::getDevices()
 {
-	Array<NIDAQDevice*> deviceList;
+    Array<NIDAQDevice*> deviceList;
 
-	for (int i = 0; i < dm->getNumAvailableDevices(); i++)
-		deviceList.add(dm->getDeviceAtIndex(i));
+    for (int i = 0; i < dm->getNumAvailableDevices(); i++)
+        deviceList.add(dm->getDeviceAtIndex(i));
 
-	return deviceList;
+    return deviceList;
 }
 
 void NIDAQOutput::setDevice(int index)
 {
-	deviceIndex = index;
+    deviceIndex = index;
     openConnection();
 }
 
 int NIDAQOutput::openConnection()
 {
 
-	mNIDAQ = new NIDAQmx(dm->getDeviceAtIndex(deviceIndex));
+    mNIDAQ = new NIDAQmx(dm->getDeviceAtIndex(deviceIndex));
 
     //TODO: Might need buffer for analog output 
-	// mNIDAQ->aoBuffer = sourceBuffers.getLast();
+    // mNIDAQ->aoBuffer = sourceBuffers.getLast();
 
-	sampleRateIndex = mNIDAQ->sampleRates.size() - 1;
-	setSampleRate(sampleRateIndex);
+    sampleRateIndex = mNIDAQ->sampleRates.size() - 1;
+    setSampleRate(sampleRateIndex);
 
-	voltageRangeIndex = mNIDAQ->device->voltageRanges.size() - 1;
-	setVoltageRange(voltageRangeIndex);
+    voltageRangeIndex = mNIDAQ->device->voltageRanges.size() - 1;
+    setVoltageRange(voltageRangeIndex);
 
-	return 0;
+    return 0;
 
 }
 
 void NIDAQOutput::setSampleRate(int rateIndex)
 {
-	sampleRateIndex = rateIndex;
-	mNIDAQ->setSampleRate(rateIndex);
+    sampleRateIndex = rateIndex;
+    mNIDAQ->setSampleRate(rateIndex);
 }
 
 Array<SettingsRange> NIDAQOutput::getVoltageRanges()
 {
-	return mNIDAQ->device->voltageRanges;
+    return mNIDAQ->device->voltageRanges;
 }
 
 void NIDAQOutput::setVoltageRange(int rangeIndex)
 {
-	voltageRangeIndex = rangeIndex;
-	mNIDAQ->setVoltageRange(rangeIndex);
+    voltageRangeIndex = rangeIndex;
+    mNIDAQ->setVoltageRange(rangeIndex);
 }
 
 void NIDAQOutput::updateSettings()
@@ -127,7 +118,7 @@ bool NIDAQOutput::stopAcquisition()
 
 void NIDAQOutput::process (AudioBuffer<float>& buffer)
 {
-    checkForEvents ();
+    checkForEvents();
 }
 
 void NIDAQOutput::handleTTLEvent(TTLEventPtr event)
@@ -137,21 +128,10 @@ void NIDAQOutput::handleTTLEvent(TTLEventPtr event)
     const int eventBit = event->getLine() + 1;
     DataStream* stream = getDataStream(event->getStreamId());
 
-    /* TODO Restore gate? 
-    if (eventBit == int((*stream)["gate_line"]))
-    {
-        if (event->getState())
-            gateIsOpen = true;
-        else
-            gateIsOpen = false;
-    }
-    */
-
     if (true)
     {
         if (eventBit == 1) // int((*stream)["input_line"]))
         {
-
             if (event->getState())
             {
                 mNIDAQ->sendDigital(0, 1);
@@ -179,5 +159,4 @@ void NIDAQOutput::loadCustomParametersFromXml(XmlElement* xml)
 
     ed->updateDevice(xml->getStringAttribute("device", ""));
     */
-
 }

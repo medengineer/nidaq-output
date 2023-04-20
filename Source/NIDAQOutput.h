@@ -45,8 +45,8 @@ public:
     ~NIDAQOutput();
 
     // Get a list of available devices
-	Array<NIDAQDevice*> getDevices();
-	int getDeviceIndex() { return deviceIndex; };
+    Array<NIDAQDevice*> getDevices();
+    int getDeviceIndex() { return deviceIndex; };
 
     /** Set the current device index */
     void setDevice(int deviceIndex);
@@ -54,8 +54,8 @@ public:
     /** Opens a connection to NIDAQ device */
     int openConnection();
 
-	/** Sets the voltage range of the data source. */
-	void setVoltageRange(int rangeIndex);
+    /** Sets the voltage range of the data source. */
+    void setVoltageRange(int rangeIndex);
 
     /** Get available sample rates for current device */
     Array<NIDAQ::float64> getSampleRates() { return mNIDAQ->sampleRates; };
@@ -63,14 +63,14 @@ public:
     /** Get the current sample rate */
     NIDAQ::float64 getSampleRate() { return mNIDAQ->getSampleRate(); };
 
-	/** Sets the sample rate of the data source. */
-	void setSampleRate(int rateIndex);
+    /** Sets the sample rate of the data source. */
+    void setSampleRate(int rateIndex);
 
     /** Get the available output voltage ranges for this device */
-	Array<SettingsRange> getVoltageRanges();
+    Array<SettingsRange> getVoltageRanges();
 
     /** Get the current voltage range index */
-	int getVoltageRangeIndex() { return voltageRangeIndex; };
+    int getVoltageRangeIndex() { return voltageRangeIndex; };
 
     /** Searches for events and triggers the NIDAQ output when appropriate. */
     void process (AudioBuffer<float>& buffer) override;
@@ -98,23 +98,20 @@ public:
 
 private:
 
-	/* Manages connected NIDAQ devices */
-	ScopedPointer<NIDAQmxDeviceManager> dm;
+    /* Manages connected NIDAQ devices */
+    ScopedPointer<NIDAQmxDeviceManager> dm;
 
     /* Flag any available devices */
-	bool outputAvailable = false;
+    bool outputAvailable = false;
 
-	/* Handle to current NIDAQ device */
-	ScopedPointer<NIDAQmx> mNIDAQ;
+    /* Handle to current NIDAQ device */
+    ScopedPointer<NIDAQmx> mNIDAQ;
 
     int deviceIndex = 0;
-	int sampleRateIndex = 0;
-	int voltageRangeIndex = 0;
+    int sampleRateIndex = 0;
+    int voltageRangeIndex = 0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (NIDAQOutput);
 };
-
-
-
 
 #endif  // __NIDAQOUTPUT_H_F7BDA585__
