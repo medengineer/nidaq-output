@@ -57,10 +57,17 @@ Array<NIDAQDevice*> NIDAQOutput::getDevices()
     return deviceList;
 }
 
-void NIDAQOutput::setDevice(int index)
+void NIDAQOutput::setDevice(String name)
 {
-    deviceIndex = index;
-    openConnection();
+    for (int i = 0; i < dm->getNumAvailableDevices(); i++)
+    {
+        if (dm->getDeviceAtIndex(i)->getName() == name)
+        {
+            deviceIndex = i;
+            openConnection();
+            break;
+        }
+    }
 }
 
 int NIDAQOutput::openConnection()
@@ -146,17 +153,14 @@ void NIDAQOutput::handleTTLEvent(TTLEventPtr event)
 }
 
 
-void NIDAQOutput::saveCustomParametersToXml(XmlElement* parentElement)
+void NIDAQOutput::saveCustomParametersToXml(XmlElement* xml)
 {
-    //parentElement->setAttribute("device", deviceString);
+    xml->setAttribute("device", mNIDAQ->device->getName());
 }
 
 void NIDAQOutput::loadCustomParametersFromXml(XmlElement* xml)
 {
-    /*
     setDevice(xml->getStringAttribute("device", ""));
     NIDAQOutputEditor* ed = (NIDAQOutputEditor*) editor.get();
-
     ed->updateDevice(xml->getStringAttribute("device", ""));
-    */
 }

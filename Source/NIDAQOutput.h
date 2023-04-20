@@ -48,8 +48,8 @@ public:
     Array<NIDAQDevice*> getDevices();
     int getDeviceIndex() { return deviceIndex; };
 
-    /** Set the current device index */
-    void setDevice(int deviceIndex);
+    /** Set the current device by name */
+    void setDevice(String deviceName);
 
     /** Opens a connection to NIDAQ device */
     int openConnection();

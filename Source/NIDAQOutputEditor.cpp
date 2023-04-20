@@ -57,18 +57,17 @@ void NIDAQOutputEditor::comboBoxChanged(ComboBox* comboBoxThatHasChanged)
 {
     if (comboBoxThatHasChanged == deviceSelector.get())
     {
-        processor->setDevice(deviceSelector->getSelectedItemIndex());
+        int deviceIndex = deviceSelector->getSelectedItemIndex();
+        processor->setDevice(processor->getDevices()[deviceIndex]->getName());
         CoreServices::updateSignalChain(this);
     }
 }
 
 void NIDAQOutputEditor::updateDevice(String deviceName)
 {
-    /*
     for (int i = 0; i < deviceSelector->getNumItems(); i++)
     {
         if (deviceSelector->getItemText(i).equalsIgnoreCase(deviceName))
             deviceSelector->setSelectedId(deviceSelector->getItemId(i), dontSendNotification);
     }
-    */
 }
