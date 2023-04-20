@@ -81,6 +81,9 @@ public:
     /** Called when settings need to be updated. */
     void updateSettings() override;
 
+    /** Called immediately at the start of data acquisition. */
+    bool startAcquisition() override;
+
     /** Called immediately after the end of data acquisition. */
     bool stopAcquisition() override;
 

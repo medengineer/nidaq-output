@@ -109,7 +109,13 @@ void NIDAQOutput::setVoltageRange(int rangeIndex)
 
 void NIDAQOutput::updateSettings()
 {
-    isEnabled = outputAvailable;
+    isEnabled = dm->getNumAvailableDevices() > 0;
+}
+
+bool NIDAQOutput::startAcquisition()
+{
+    mNIDAQ->startTasks();
+    return true;
 }
 
 bool NIDAQOutput::stopAcquisition()
@@ -127,6 +133,8 @@ void NIDAQOutput::process (AudioBuffer<float>& buffer)
 void NIDAQOutput::handleTTLEvent(TTLEventPtr event)
 {
 
+    LOGC("Got TTL event on line: ", event->getLine() + 1);
+
     //TODO: Trigger output based on current settings
     const int eventBit = event->getLine() + 1;
     DataStream* stream = getDataStream(event->getStreamId());
@@ -143,28 +151,22 @@ void NIDAQOutput::handleTTLEvent(TTLEventPtr event)
 
     if (true)
     {
-        if (eventBit == 0) // int((*stream)["input_line"]))
+        if (eventBit == 1) // int((*stream)["input_line"]))
         {
-
-            LOGC("Got event!");
 
             if (event->getState())
             {
-                LOGC("Detected on");
-                /* TODO Add NIDAQ sendDigital function
-                mNIDAQmx->sendDigital(
-                    getParameter("output_pin")->getValue(),
-                    0);
-                */
+                LOGC("Detected on, sending on...");
+                mNIDAQ->sendDigital(0, 1);
+                    //getParameter("output_pin")->getValue(),
+                    //0);
             }
             else
             {
-                LOGC("Detected off");
-                /*
-                NIDAQ.sendDigital(
-                    getParameter("output_pin")->getValue(),
-                    1);
-                */
+                LOGC("Detected off, sending off...");
+                mNIDAQ->sendDigital(0, 0);
+                    //getParameter("output_pin")->getValue(),
+                    //1);
             }
         }
     }

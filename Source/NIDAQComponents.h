@@ -194,14 +194,18 @@ public:
 	/* 32-bit mask indicating which lines are currently enabled */
 	uint32 getActiveDigitalLines();
 
-	void run() override { /* TODO: Buffer analog output data and send in chunks to avoid blocking the UI thread */ };
+	void startTasks();
+
+	void sendDigital(int channelIdx, bool state);
+
+	void run() override {};
 
 	Array<NIDAQ::float64> sampleRates;
 
 	OwnedArray<AnalogOutput> 	aout;
 	OwnedArray<OutputChannel> 	dout;
 
-	friend class NIDAQThread;
+	std::vector<NIDAQ::TaskHandle> taskHandlesDO;
 
 private:
 

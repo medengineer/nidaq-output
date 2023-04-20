@@ -331,6 +331,11 @@ void NIDAQmx::connect()
 
 		LOGD("Found ", dout.size(), " digital output channels");
 
+		NIDAQ::int32					di_read = 0;
+		static int						totalDIRead = 0;
+
+		// Start a digital task on port 2
+
 		// Set sample rate range
 		//NIDAQ::float64 smax = smaxm;
 		/*
@@ -361,6 +366,111 @@ Error:
 
 }
 
+void NIDAQmx::startTasks()
+{
+
+	NIDAQ::int32	error = 0;
+	char			errBuff[ERR_BUFF_SIZE] = { '\0' };
+
+	if (taskHandlesDO.size() > 0)
+	{
+		for (auto& taskHandle : taskHandlesDO)
+		{
+			NIDAQ::DAQmxStopTask(taskHandle);
+			NIDAQ::DAQmxClearTask(taskHandle);
+		}
+		taskHandlesDO.clear();
+	}
+
+	char ports[2048];
+	NIDAQ::DAQmxGetDevDOPorts(STR2CHR(device->getName()), &ports[0], sizeof(ports));
+
+	LOGD("Got ports: ", ports);
+
+	StringArray port_list;
+	port_list.addTokens(&ports[0], ", ", "\"");
+
+	int portIdx = 0;
+	for (auto& port : port_list)
+	{
+
+		if (port.length() && (portIdx*PORT_SIZE < dout.size()) && portIdx == 1) //hard-coded to port index 1 for now...
+		{
+
+			NIDAQ::TaskHandle taskHandleDO = 0;
+			/* Create a digital input task using device serial number to gurantee unique task name per device */
+			if (device->isUSBDevice)
+				DAQmxErrChk(NIDAQ::DAQmxCreateTask(STR2CHR("DOTask_USB"+getSerialNumber()+"port"+std::to_string(portIdx)), &taskHandleDO));
+			else
+				DAQmxErrChk(NIDAQ::DAQmxCreateTask(STR2CHR("DOTask_PXI"+getSerialNumber()+"port"+std::to_string(portIdx)), &taskHandleDO));
+
+			LOGC("Creating task for port: ", port);
+
+			/* Create a channel for each digital output port */
+			DAQmxErrChk(NIDAQ::DAQmxCreateDOChan(
+				taskHandleDO,
+				STR2CHR(port),
+				"",
+				DAQmx_Val_ChanForAllLines)
+			);
+
+			taskHandlesDO.push_back(taskHandleDO);
+
+		}
+
+		if (port.length()) portIdx++;
+
+	}
+
+
+	for (NIDAQ::TaskHandle taskHandle : taskHandlesDO)
+	{
+		DAQmxErrChk(NIDAQ::DAQmxTaskControl(taskHandle, DAQmx_Val_Task_Commit));
+		DAQmxErrChk(NIDAQ::DAQmxStartTask(taskHandle));
+	}
+
+Error:
+
+	if (DAQmxFailed(error))
+		NIDAQ::DAQmxGetExtendedErrorInfo(errBuff, ERR_BUFF_SIZE);
+
+	if (DAQmxFailed(error))
+		LOGE("DAQmx Error: ", errBuff);
+	fflush(stdout);
+
+	return;
+}
+
+void NIDAQmx::sendDigital(int channelIdx, bool state)
+{
+
+	NIDAQ::int32	error = 0;
+	char			errBuff[ERR_BUFF_SIZE] = { '\0' };
+	NIDAQ::int32 	write;
+	NIDAQ::uInt8	data[1] = {0};
+
+	if (channelIdx >= dout.size())
+		return;
+
+	if (dout[channelIdx]->isEnabled() && taskHandlesDO.size())
+	{
+		if (state) data[0] ^= 0xFF; //invert bits
+		LOGC("NIDAQ writing digital line ", channelIdx, " to ", state, " (", data[0], "");
+		DAQmxErrChk(NIDAQ::DAQmxWriteDigitalU8(taskHandlesDO[0], 1, 1, 10.0, DAQmx_Val_GroupByChannel, data, &write, nullptr));
+	}
+
+Error:
+
+	if (DAQmxFailed(error))
+		NIDAQ::DAQmxGetExtendedErrorInfo(errBuff, ERR_BUFF_SIZE);
+
+	if (DAQmxFailed(error))
+		LOGE("DAQmx Error: ", errBuff);
+	fflush(stdout);
+
+	return;
+
+}
 uint32 NIDAQmx::getActiveDigitalLines()
 {
 	if (!getNumActiveDigitalOutputs())
