@@ -47,12 +47,16 @@ public:
     // Get a list of available devices
     Array<NIDAQDevice*> getDevices();
     int getDeviceIndex() { return deviceIndex; };
+    String getDeviceName() { return mNIDAQ->device->getName(); };
 
     /** Set the current device by name */
     void setDevice(String deviceName);
 
     /** Opens a connection to NIDAQ device */
     int openConnection();
+
+    /** Flag whether an output is available */
+    bool isOutputAvailable() { return outputAvailable; };
 
     /** Sets the voltage range of the data source. */
     void setVoltageRange(int rangeIndex);
@@ -62,9 +66,24 @@ public:
 
     /** Get the current sample rate */
     NIDAQ::float64 getSampleRate() { return mNIDAQ->getSampleRate(); };
+    int getSampleRateIndex() { return sampleRateIndex; };
 
     /** Sets the sample rate of the data source. */
     void setSampleRate(int rateIndex);
+
+    /** Get the number of active analog outputs */
+    int getNumActiveAnalogOutputs() { return mNIDAQ->getNumActiveAnalogOutputs(); };
+
+    SOURCE_TYPE getSourceTypeForOutput(int outputIndex) { return mNIDAQ->getSourceTypeForOutput(outputIndex); };
+
+    /** Set Analog channel enabled state */
+    void setAnalogEnable(int id, bool enabled) { mNIDAQ->aout[id]->setEnabled(enabled); };
+
+    /** Set Digital channel enabled state */
+    void setDigitalEnable(int id, bool enabled) { mNIDAQ->dout[id]->setEnabled(enabled); };
+
+    /** Get the number of active digital outputs */
+    int getNumActiveDigitalOutputs() { return mNIDAQ->getNumActiveDigitalOutputs(); };
 
     /** Get the available output voltage ranges for this device */
     Array<SettingsRange> getVoltageRanges();

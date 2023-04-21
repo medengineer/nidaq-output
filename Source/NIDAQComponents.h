@@ -33,7 +33,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define NUM_SAMPLE_RATES 17
 
 #define PORT_SIZE 8 //number of bits in a port
-#define DEFAULT_NUM_ANALOG_OUTPUTS 1
+#define DEFAULT_NUM_ANALOG_OUTPUTS 2
 #define DEFAULT_NUM_DIGITAL_OUTPUTS 8
 
 #define ERR_BUFF_SIZE 2048
@@ -182,7 +182,7 @@ public:
 	SettingsRange getVoltageRange() { return device->voltageRanges[voltageRangeIndex]; };
 	void setVoltageRange(int index) { voltageRangeIndex = index; };
 
-	SOURCE_TYPE getSourceTypeForOuput(int analogOutputIndex) { return aout[analogOutputIndex]->getSourceType(); };
+	SOURCE_TYPE getSourceTypeForOutput(int analogOutputIndex) { return aout[analogOutputIndex]->getSourceType(); };
 	void toggleSourceType(int analogOutputIndex) { aout[analogOutputIndex]->setNextSourceType(); }
 
 	void setNumActiveAnalogOutputs(int numActiveAnalogOutputs_) { numActiveAnalogOutputs = numActiveAnalogOutputs_; };
@@ -219,7 +219,7 @@ private:
 
 	int digitalWriteSize = 0;
 
-	int numActiveAnalogOutputs = DEFAULT_NUM_ANALOG_OUTPUTS; //8
+	int numActiveAnalogOutputs = DEFAULT_NUM_ANALOG_OUTPUTS; //2
 	int numActiveDigitalOutputs = DEFAULT_NUM_DIGITAL_OUTPUTS; //8
 
 	HeapBlock<NIDAQ::float64> aout_data;
