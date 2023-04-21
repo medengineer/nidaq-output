@@ -88,7 +88,8 @@ void EditorBackground::paint(Graphics& g)
 		}
 
 		/* Draw DO lines */
-		float doChanOffsetX = aoChanOffsetX + ((nAO % maxChannelsPerColumn == 0 ? 0 : 1) + nAO / aoChannelsPerColumn) * paddingX * aoChanWidth;
+        // + ((nAO % maxChannelsPerColumn == 0 ? 0 : 1)
+		float doChanOffsetX = aoChanOffsetX + nAO / aoChannelsPerColumn * paddingX * aoChanWidth;
 		float doChanOffsetY = aoChanOffsetY;
 		float doChanWidth = 42;
 		float doChanHeight = 22;
@@ -317,7 +318,7 @@ NIDAQOutputEditor::NIDAQOutputEditor(GenericProcessor* parentNode)
 
 	int xOffset = 0;
 
-	// Draw analog inputs 
+	// Draw analog outputs 
 	for (int i = 0; i < nAO; i++)
 	{
 
@@ -345,13 +346,13 @@ NIDAQOutputEditor::NIDAQOutputEditor(GenericProcessor* parentNode)
 
 	doButtons.clear();
 
-	// Draw digital inputs
+	// Draw digital outputs
 	for (int i = 0; i < nDO; i++)
 	{
 
 		int colIndex = i / doChannelsPerColumn;
 		int rowIndex = i % doChannelsPerColumn + 1;
-		xOffset = ((nAO % maxChannelsPerColumn == 0 ? 0 : 1) + nAO / aoChannelsPerColumn) * 75 + 38 + colIndex * 45;
+		xOffset = nAO / aoChannelsPerColumn * 75 + 38 + colIndex * 45; // + ((nAO % maxChannelsPerColumn == 0 ? 0 : 1)
 		int y_pos = 5 + rowIndex * 26;
 
 		DOButton* b = new DOButton(i, processor);
