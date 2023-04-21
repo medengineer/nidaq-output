@@ -139,12 +139,10 @@ void NIDAQOutput::process (AudioBuffer<float>& buffer)
 
 void NIDAQOutput::handleTTLEvent(TTLEventPtr event)
 {
-
     const int eventBit = event->getLine() + 1;
     DataStream* stream = getDataStream(event->getStreamId());
 
     mNIDAQ->sendDigital(eventBit, event->getState());
-
 }
 
 

@@ -231,7 +231,7 @@ private:
 	HeapBlock<NIDAQ::uInt32> eventCodes;
 
 	int64 aout_timestamp;
-	uint64 eventCode;
+	NIDAQ::uInt8 eventCode;
 
 	std::map<int,int> digitalLineMap;
 

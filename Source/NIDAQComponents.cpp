@@ -419,7 +419,23 @@ void NIDAQmx::startTasks()
 	{
 		DAQmxErrChk(NIDAQ::DAQmxTaskControl(taskHandle, DAQmx_Val_Task_Commit));
 		DAQmxErrChk(NIDAQ::DAQmxStartTask(taskHandle));
+
+		NIDAQ::uInt8 eventData[1] = {0};
+		NIDAQ::int32 write;
+
+		DAQmxErrChk(NIDAQ::DAQmxWriteDigitalU8(
+			taskHandle,
+			1,
+			1,
+			10.0,
+			DAQmx_Val_GroupByChannel,
+			eventData,
+			&write,
+			nullptr
+		));
 	}
+
+	eventCode = 0;
 
 Error:
 
@@ -467,15 +483,33 @@ void NIDAQmx::sendDigital(int channelIdx, bool state)
 	NIDAQ::int32	error = 0;
 	char			errBuff[ERR_BUFF_SIZE] = { '\0' };
 	NIDAQ::int32 	write;
-	NIDAQ::uInt8	data[1] = {0};
+	NIDAQ::uInt8	eventData[1] = {0};
 
 	if (channelIdx >= dout.size())
 		return;
 
 	if (dout[channelIdx]->isEnabled() && taskHandlesDO.size())
 	{
-		if (state) data[0] = 1 << channelIdx; //data[0] ^= 0xFF; //invert all bits
-		DAQmxErrChk(NIDAQ::DAQmxWriteDigitalU8(taskHandlesDO[0], 1, 1, 10.0, DAQmx_Val_GroupByChannel, data, &write, nullptr));
+
+		uint8 mask = 1 << channelIdx;
+		if (state)
+			eventData[0] = eventCode | mask;
+		else
+			eventData[0] = eventCode & ~mask;
+
+		DAQmxErrChk(NIDAQ::DAQmxWriteDigitalU8(
+			taskHandlesDO[0],
+			1,
+			1,
+			10.0,
+			DAQmx_Val_GroupByChannel,
+			eventData,
+			&write,
+			nullptr
+		));
+
+		eventCode = eventData[0];
+
 	}
 
 Error:
