@@ -365,7 +365,6 @@ NIDAQOutputEditor::NIDAQOutputEditor(GenericProcessor* parentNode)
 
 void NIDAQOutputEditor::draw()
 {
-    
     processor = (NIDAQOutput*)getProcessor();
 
     desiredWidth = 240;
@@ -593,7 +592,7 @@ void NIDAQOutputEditor::updateDevice(String deviceName)
 {
     for (int i = 0; i < deviceSelectBox->getNumItems(); i++)
     {
-        if (deviceSelectBox->getItemText(i).equalsIgnoreCase(deviceName))
-            deviceSelectBox->setSelectedId(deviceSelectBox->getItemId(i), dontSendNotification);
+        if (deviceSelectBox->getItemText(i).equalsIgnoreCase(processor->getDevices()[i]->productName))
+            deviceSelectBox->setSelectedId(deviceSelectBox->getItemId(i), sendNotification);
     }
 }
