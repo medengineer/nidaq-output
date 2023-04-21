@@ -286,11 +286,86 @@ void SourceTypeButton::timerCallback()
 
 }
 
+PopupConfigurationWindow::PopupConfigurationWindow(NIDAQOutputEditor* editor_)
+    : editor(editor_)
+{
+    //tableHeader.reset(new TableHeaderComponent());
+
+	analogLabel = new Label ("Analog", "Analog Outputs: ");
+	analogLabel->setFont(Font(16.0f, Font::bold));
+	analogLabel->setColour(Label::textColourId, Colours::white);
+    analogLabel->setBounds (2, 8, 110, 20);
+    addAndMakeVisible(analogLabel);
+
+	int activeAnalogCount = editor->getNumActiveAnalogOutputs();
+    analogChannelCountSelect = new ComboBox ("Analog Count Selector");
+	for (int i = 4; i <= editor->getTotalAvailableAnalogOutputs(); i+=4)
+	{
+		analogChannelCountSelect->addItem(String(i), i / 4);
+		if (i == activeAnalogCount)
+			analogChannelCountSelect->setSelectedId(i / 4, dontSendNotification);
+	}
+    analogChannelCountSelect->setBounds (115, 8, 60, 20);
+    analogChannelCountSelect->addListener (this);
+    addAndMakeVisible (analogChannelCountSelect);
+
+	digitalLabel = new Label ("Digital", "Digital Outputs: ");
+	digitalLabel->setColour(Label::textColourId, Colours::white);
+    digitalLabel->setBounds (2, 33, 110, 20);
+    addAndMakeVisible(digitalLabel);
+
+	int activeDigitalCount = editor->getNumActiveDigitalOutputs();
+    digitalChannelCountSelect = new ComboBox ("Digital Count Selector");
+	for (int i = 0; i <= editor->getTotalAvailableDigitalOutputs(); i+=4)
+	{
+		digitalChannelCountSelect->addItem(String(i), i / 4 + 1);
+		if (i == activeDigitalCount)
+			digitalChannelCountSelect->setSelectedId(i / 4 + 1, dontSendNotification);
+	}
+    digitalChannelCountSelect->setBounds (115, 33, 60, 20);
+    digitalChannelCountSelect->addListener (this);
+    addAndMakeVisible (digitalChannelCountSelect);
+
+	digitalWriteLabel = new Label ("Digital Write", "Digital Write: ");
+	digitalWriteLabel->setColour(Label::textColourId, Colours::white);
+	digitalWriteLabel->setBounds (2, 58, 110, 20);
+	addAndMakeVisible(digitalWriteLabel);
+
+	digitalWriteSelect = new ComboBox("Digital Write Selector");
+	Array<int> digitalWriteOptions = { 8, 16, 32 };
+	for (int i = 0; i < digitalWriteOptions.size(); i++)
+	{
+		digitalWriteSelect->addItem(String(digitalWriteOptions[i]) + " bits", i + 1);
+		if (digitalWriteOptions[i] == editor->getDigitalWriteSize())
+			digitalWriteSelect->setSelectedId(i + 1, dontSendNotification);
+	}
+	digitalWriteSelect->setBounds(115, 58, 60, 20);
+	digitalWriteSelect->addListener(this);
+	addAndMakeVisible(digitalWriteSelect);
+
+    setSize(180, 80);
+
+}
+
+void PopupConfigurationWindow::comboBoxChanged(ComboBox* comboBox)
+{
+	int numAnalogOutputs = int(analogChannelCountSelect->getItemText(analogChannelCountSelect->getSelectedId() - 1).getFloatValue());
+	int numDigitalOutputs = int(digitalChannelCountSelect->getItemText(digitalChannelCountSelect->getSelectedId() - 1).getFloatValue());
+	int digitalWrite = int(digitalWriteSelect->getItemText(digitalWriteSelect->getSelectedId() - 1).getFloatValue());
+
+	editor->update(numAnalogOutputs, numDigitalOutputs, digitalWrite);
+}
+
 NIDAQOutputEditor::NIDAQOutputEditor(GenericProcessor* parentNode)
     : GenericEditor(parentNode)
 
 {
+    draw();
+}
 
+void NIDAQOutputEditor::draw()
+{
+    
     processor = (NIDAQOutput*)getProcessor();
 
     desiredWidth = 240;
@@ -402,7 +477,7 @@ NIDAQOutputEditor::NIDAQOutputEditor(GenericProcessor* parentNode)
 	voltageRangeSelectBox->addListener(this);
 	addAndMakeVisible(voltageRangeSelectBox);
 
-	//fifoMonitor = new FifoMonitor(thread);
+	//fifoMonitor = new FifoMonitor(processor);
 	//fifoMonitor->setBounds(xOffset + 2, 105, 70, 12);
 	//addAndMakeVisible(fifoMonitor);
 
@@ -422,6 +497,36 @@ NIDAQOutputEditor::NIDAQOutputEditor(GenericProcessor* parentNode)
 
 	//TODO: Why this line casuses crash in editor->update in v6?
 	//setDisplayName("NIDAQmx-(" + processor->getProductName() + ")");
+
+}
+void NIDAQOutputEditor::update(int numAnalog, int numDigital, int digitalWriteSize)
+{
+
+	if (numAnalog != processor->getNumActiveAnalogOutputs())
+	{
+		processor->setNumActiveAnalogChannels(numAnalog);
+		processor->updateAnalogChannels();
+
+		CoreServices::updateSignalChain(this);
+
+		((CallOutBox*)currentConfigWindow->getParentComponent())->dismiss();
+	}
+
+	if (numDigital != processor->getNumActiveDigitalOutputs())
+	{
+		processor->setNumActiveDigitalChannels(numDigital);
+		processor->updateDigitalChannels();
+
+		((CallOutBox*)currentConfigWindow->getParentComponent())->dismiss();
+	}
+
+	if (digitalWriteSize != processor->getDigitalWriteSize())
+	{
+		processor->setDigitalWriteSize(digitalWriteSize);
+	}
+
+	draw();
+
 }
 
 void NIDAQOutputEditor::comboBoxChanged(ComboBox* comboBoxThatHasChanged)
@@ -442,44 +547,46 @@ void NIDAQOutputEditor::buttonClicked(Button* button)
 void NIDAQOutputEditor::buttonEvent(Button* button)
 {
 
-    /*
 	if (aoButtons.contains((AOButton*)button))
 	{
-		((AOButton*)button)->setEnabled(thread->toggleAIChannel(((AOButton*)button)->getId()));
+        /*
+		((AOButton*)button)->setEnabled(processor->toggleAIChannel(((AOButton*)button)->getId()));
 		repaint();
+        */
 	}
 	else if (doButtons.contains((DOButton*)button))
 	{
-		((DOButton*)button)->setEnabled(thread->toggleDIChannel(((DOButton*)button)->getId()));
+        /*
+		((DOButton*)button)->setEnabled(processor->toggleDIChannel(((DOButton*)button)->getId()));
 		repaint();
+        */
 	}
 	else if (sourceTypeButtons.contains((SourceTypeButton*)button))
 	{
+        /*
 		int currentButtonId = ((SourceTypeButton*)button)->getId();
-		thread->toggleSourceType(currentButtonId);
-		SOURCE_TYPE next = thread->getSourceTypeForInput(currentButtonId);
+		processor->toggleSourceType(currentButtonId);
+		SOURCE_TYPE next = processor->getSourceTypeForInput(currentButtonId);
 		((SourceTypeButton*)button)->update(next);
 		repaint();
+        */
 	}
 	else if (button == configureDeviceButton)
 	{
-		if (!thread->isThreadRunning())
-		{
+		if (!CoreServices::getAcquisitionStatus())
+        {
+            currentConfigWindow = new PopupConfigurationWindow(this);
+            CallOutBox& myBox
+                = CallOutBox::launchAsynchronously(std::unique_ptr<Component>(currentConfigWindow),
+                    button->getScreenBounds(),
+                    nullptr);
 
-			currentConfigWindow = new PopupConfigurationWindow(this);
+            myBox.setDismissalMouseClicksAreAlwaysConsumed(true);
 
-			CallOutBox& myBox
-				= CallOutBox::launchAsynchronously(std::unique_ptr<Component>(currentConfigWindow), 
-					button->getScreenBounds(),
-					nullptr);
+            return;
 
-			myBox.setDismissalMouseClicksAreAlwaysConsumed(true);
-			
-			return;
-
-		}
+        }
 	}
-    */
 }
 
 void NIDAQOutputEditor::updateDevice(String deviceName)

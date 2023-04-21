@@ -33,7 +33,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define NUM_SAMPLE_RATES 17
 
 #define PORT_SIZE 8 //number of bits in a port
-#define DEFAULT_NUM_ANALOG_OUTPUTS 2
+#define DEFAULT_NUM_ANALOG_OUTPUTS 0
 #define DEFAULT_NUM_DIGITAL_OUTPUTS 8
 
 #define ERR_BUFF_SIZE 2048
@@ -190,6 +190,10 @@ public:
 
 	void setNumActiveDigitalOutputs(int numActiveDigitalOutputs_) { numActiveDigitalOutputs = numActiveDigitalOutputs_; };
 	int getNumActiveDigitalOutputs() { return numActiveDigitalOutputs; };
+
+	/*Digital configuration */
+	void setDigitalWriteSize(int digitalWriteSize_) { digitalWriteSize = digitalWriteSize_; };
+	int getDigitalWriteSize() { return digitalWriteSize; };
 
 	/* 32-bit mask indicating which lines are currently enabled */
 	uint32 getActiveDigitalLines();

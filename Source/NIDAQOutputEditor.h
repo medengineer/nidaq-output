@@ -62,8 +62,8 @@ private:
 	ScopedPointer<Label>  digitalLabel;
 	ScopedPointer<ComboBox> digitalChannelCountSelect;
 
-	ScopedPointer<Label>  digitalReadLabel;
-	ScopedPointer<ComboBox> digitalReadSelect;
+	ScopedPointer<Label>  digitalWriteLabel;
+	ScopedPointer<ComboBox> digitalWriteSelect;
 
 };
 
@@ -156,7 +156,13 @@ public:
     /** Destructor*/
     ~NIDAQOutputEditor() { }
 
-    /** Called when selected device is changed.*/
+    /** Called whenever the editor updates UI elements */
+    void draw();
+
+    /** Called when device configuration is changed */
+    void update(int analogCount, int digitalCount, int digitalWrite);
+
+    /** Called when a combo box selection is changed */
     void comboBoxChanged(ComboBox* comboBoxThatHasChanged);
 
     /** Respond to button presses */
@@ -167,6 +173,14 @@ public:
 
     /** Gets the latest device from the processor*/
     void updateDevice(String deviceName);
+
+    int getTotalAvailableAnalogOutputs() { return processor->getTotalAvailableAnalogOutputs(); };
+	int getTotalAvailableDigitalOutputs() { return processor-> getTotalAvailableDigitalOutputs(); };
+
+	int getNumActiveAnalogOutputs() { return processor->getNumActiveAnalogOutputs(); };
+	int getNumActiveDigitalOutputs() { return processor->getNumActiveDigitalOutputs(); };
+
+	int getDigitalWriteSize() { return processor->getDigitalWriteSize(); };
 
 private:
 

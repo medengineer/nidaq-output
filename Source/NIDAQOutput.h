@@ -44,7 +44,7 @@ public:
     /** Destructor */
     ~NIDAQOutput();
 
-    // Get a list of available devices
+    /** Get a list of available devices */
     Array<NIDAQDevice*> getDevices();
     int getDeviceIndex() { return deviceIndex; };
     String getDeviceName() { return mNIDAQ->device->getName(); };
@@ -71,8 +71,27 @@ public:
     /** Sets the sample rate of the data source. */
     void setSampleRate(int rateIndex);
 
+    /** Returns total number of available analog inputs on device */
+	int getTotalAvailableAnalogOutputs() { return mNIDAQ->device->numAOChannels; }; 
+
+	/** Returns total number of available digital inputs on device */
+	int getTotalAvailableDigitalOutputs() { return mNIDAQ->device->numDOChannels; };
+
     /** Get the number of active analog outputs */
     int getNumActiveAnalogOutputs() { return mNIDAQ->getNumActiveAnalogOutputs(); };
+	void setNumActiveAnalogChannels(int numChannels) { mNIDAQ->setNumActiveAnalogOutputs(numChannels); };
+
+    /** Get the number of active digital outputs */
+    int getNumActiveDigitalOutputs() { return mNIDAQ->getNumActiveDigitalOutputs(); };
+	void setNumActiveDigitalChannels(int numChannels) { mNIDAQ->setNumActiveDigitalOutputs(numChannels); };
+
+    /** TODO update buffers based on channel counts / active channels */
+    void updateAnalogChannels();
+	void updateDigitalChannels();
+
+	/** Get/set digital write size */
+	int getDigitalWriteSize() { return mNIDAQ->getDigitalWriteSize(); };
+	void setDigitalWriteSize(int size) { mNIDAQ->setDigitalWriteSize(size); };
 
     SOURCE_TYPE getSourceTypeForOutput(int outputIndex) { return mNIDAQ->getSourceTypeForOutput(outputIndex); };
 
@@ -81,9 +100,6 @@ public:
 
     /** Set Digital channel enabled state */
     void setDigitalEnable(int id, bool enabled) { mNIDAQ->dout[id]->setEnabled(enabled); };
-
-    /** Get the number of active digital outputs */
-    int getNumActiveDigitalOutputs() { return mNIDAQ->getNumActiveDigitalOutputs(); };
 
     /** Get the available output voltage ranges for this device */
     Array<SettingsRange> getVoltageRanges();
@@ -109,10 +125,10 @@ public:
     /** Creates the NIDAQOutputEditor. */
     AudioProcessorEditor* createEditor() override;
 
-    /** Saves the connected device*/
+    /** Saves the connected device */
     void saveCustomParametersToXml(XmlElement* parentElement) override;
 
-    /** Loads the connected device*/
+    /** Loads the connected device */
     void loadCustomParametersFromXml(XmlElement* xml) override;
 
 private:

@@ -105,6 +105,16 @@ void NIDAQOutput::setVoltageRange(int rangeIndex)
     mNIDAQ->setVoltageRange(rangeIndex);
 }
 
+void NIDAQOutput::updateAnalogChannels()
+{
+    //TODO 
+}
+
+void NIDAQOutput::updateDigitalChannels()
+{
+    //TODO 
+}
+
 void NIDAQOutput::updateSettings()
 {
     isEnabled = dm->getNumAvailableDevices() > 0;
@@ -121,7 +131,6 @@ bool NIDAQOutput::stopAcquisition()
     mNIDAQ->clearTasks();
     return true;
 }
-
 
 void NIDAQOutput::process (AudioBuffer<float>& buffer)
 {
