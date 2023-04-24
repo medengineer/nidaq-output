@@ -24,6 +24,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #ifndef __NIDAQCOMPONENTS_H__
 #define __NIDAQCOMPONENTS_H__
 
+#include <DataThreadHeaders.h>
 #include <ProcessorHeaders.h>
 #include <stdio.h>
 #include <string.h>
@@ -33,7 +34,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define NUM_SAMPLE_RATES 17
 
 #define PORT_SIZE 8 //number of bits in a port
-#define DEFAULT_NUM_ANALOG_OUTPUTS 0
+#define DEFAULT_NUM_ANALOG_OUTPUTS 2
 #define DEFAULT_NUM_DIGITAL_OUTPUTS 8
 
 #define ERR_BUFF_SIZE 2048
@@ -201,7 +202,8 @@ public:
 	void startTasks();
 	void clearTasks();
 
-	void sendDigital(int channelIdx, bool state);
+	void analogWrite(AudioBuffer<float>& buffer, int numSamples);
+	void digitalWrite(int channelIdx, bool state);
 
 	void run() override {};
 
@@ -210,6 +212,7 @@ public:
 	OwnedArray<AnalogOutput> 	aout;
 	OwnedArray<OutputChannel> 	dout;
 
+	NIDAQ::TaskHandle taskHandleAO;
 	std::vector<NIDAQ::TaskHandle> taskHandlesDO;
 
 private:
@@ -234,6 +237,8 @@ private:
 	NIDAQ::uInt8 eventCode;
 
 	std::map<int,int> digitalLineMap;
+
+	DataBuffer* aoBuffer;
 
 };
 

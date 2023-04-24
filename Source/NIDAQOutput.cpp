@@ -122,6 +122,7 @@ void NIDAQOutput::updateSettings()
 
 bool NIDAQOutput::startAcquisition()
 {
+    LOGC("Starting Tasks...");
     mNIDAQ->startTasks();
     return true;
 }
@@ -134,7 +135,24 @@ bool NIDAQOutput::stopAcquisition()
 
 void NIDAQOutput::process (AudioBuffer<float>& buffer)
 {
+    /* Check for events and immediately send event */
     checkForEvents();
+
+    /* Mirror analog output from first input channel on first stream */
+    int streamIdx = 0;
+    for (auto stream : dataStreams)
+    {
+        const uint16 streamId = stream->getStreamId();
+
+        uint32 numSamples = getNumSamplesInBlock(streamId);
+
+        if (streamIdx == 0)
+        {
+            mNIDAQ->analogWrite(buffer, numSamples);
+        }
+        streamIdx++;
+
+    }
 }
 
 void NIDAQOutput::handleTTLEvent(TTLEventPtr event)
@@ -142,9 +160,8 @@ void NIDAQOutput::handleTTLEvent(TTLEventPtr event)
     const int eventBit = event->getLine() + 1;
     DataStream* stream = getDataStream(event->getStreamId());
 
-    mNIDAQ->sendDigital(eventBit, event->getState());
+    mNIDAQ->digitalWrite(eventBit, event->getState());
 }
-
 
 void NIDAQOutput::saveCustomParametersToXml(XmlElement* xml)
 {
