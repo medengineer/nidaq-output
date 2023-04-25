@@ -343,6 +343,22 @@ PopupConfigurationWindow::PopupConfigurationWindow(NIDAQOutputEditor* editor_)
 	digitalWriteSelect->addListener(this);
 	addAndMakeVisible(digitalWriteSelect);
 
+	/*
+	digitalPortsLabel = new Label("Digital Ports", "Digital Ports: ");
+	digitalPortsLabel->setColour(Label::textColourId, Colours::white);
+	digitalPortsLabel->setBounds(2, 83, 110, 20);
+	addAndMakeVisible(digitalPortsLabel);
+
+    std::vector<int> digitalPorts = editor->getDigitalPorts();
+	digitalPortsSelect = new ComboBox ("Digital Port Selector");
+	for (int i = 0; i < digitalPorts.size(); i++)
+	{
+		digitalPortsSelect->addItem(digitalPorts[i], i + 1);
+		if (digitalPorts[i] == editor->getPortNameForIndex(i)
+			digitalPortsSelect->setSelectedId(i + 1, dontSendNotirfication);
+	}
+	*/
+
     setSize(180, 80);
 
 }

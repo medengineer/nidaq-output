@@ -93,6 +93,9 @@ public:
 	int getDigitalWriteSize() { return mNIDAQ->getDigitalWriteSize(); };
 	void setDigitalWriteSize(int size) { mNIDAQ->setDigitalWriteSize(size); };
 
+    int getTotalAvailableDigitalPorts() { return mNIDAQ->device->numDOPorts; };
+    std::vector<int> getActiveDigitalPorts() { return mNIDAQ->getActiveDigitalPorts(); };
+
     SOURCE_TYPE getSourceTypeForOutput(int outputIndex) { return mNIDAQ->getSourceTypeForOutput(outputIndex); };
 
     /** Set Analog channel enabled state */

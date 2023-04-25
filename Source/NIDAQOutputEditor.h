@@ -65,6 +65,9 @@ private:
 	ScopedPointer<Label>  digitalWriteLabel;
 	ScopedPointer<ComboBox> digitalWriteSelect;
 
+	ScopedPointer<Label> digitalPortsLabel;
+	ScopedPointer<ComboBox> digitalPortsSelect;
+
 };
 
 class EditorBackground : public Component
@@ -181,6 +184,9 @@ public:
 	int getNumActiveDigitalOutputs() { return processor->getNumActiveDigitalOutputs(); };
 
 	int getDigitalWriteSize() { return processor->getDigitalWriteSize(); };
+
+	int getTotalAvailableDigitalPorts() { return processor->getTotalAvailableDigitalPorts(); };
+	std::vector<int> getActiveDigitalPorts() { return processor->getActiveDigitalPorts(); };
 
 private:
 

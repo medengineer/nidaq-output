@@ -135,7 +135,7 @@ bool NIDAQOutput::stopAcquisition()
 
 void NIDAQOutput::process (AudioBuffer<float>& buffer)
 {
-    /* Check for events and immediately send event */
+    /* Check for events */
     checkForEvents();
 
     /* Mirror analog output from first input channel on first stream */

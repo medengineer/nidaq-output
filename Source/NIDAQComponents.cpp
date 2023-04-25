@@ -310,6 +310,7 @@ void NIDAQmx::connect()
 		channel_list.clear();
 		channel_list.addTokens(&di_channel_data[0], ", ", "\"");
 
+		device->digitalPortStates.clear();
 		device->numDOChannels = 0;
 		dout.clear();
 
@@ -319,19 +320,29 @@ void NIDAQmx::connect()
 			channel_type.addTokens(channel_list[i], "/", "\"");
 			if (channel_list[i].length() > 0)
 			{
-				String name = channel_list[i].toRawUTF8();
+				String fullName = channel_list[i].toRawUTF8();
 
-				//LOGD("Found digital line: ", name);
+				String lineName = fullName.fromFirstOccurrenceOf("/", false, false);
+				String portName = fullName.upToLastOccurrenceOf("/", false, false);
 
-				dout.add(new OutputChannel(name));
+				if (!device->digitalPortStates.count(portName.toRawUTF8()))
+					device->digitalPortStates[portName.toRawUTF8()] = device->digitalPortStates.size() ? true : false;
+
+				LOGD("Found digital line: ", fullName);
+				LOGD("Found port name: ", portName);
+
+				dout.add(new OutputChannel(fullName));
 
 				dout.getLast()->setAvailable(true);
 				if (device->numDOChannels++ < numActiveDigitalOutputs)
 					dout.getLast()->setEnabled(true);
+
 			}
 		}
 
-		LOGD("Found ", dout.size(), " digital output channels");
+		LOGD("Found ", dout.size(), " digital output channels across ", device->digitalPortStates.size(), " ports");
+		for (auto state : device->digitalPortStates)
+			LOGD("Port ", state.first, " is ", state.second ? "enabled" : "disabled");
 
 		NIDAQ::int32					di_read = 0;
 		static int						totalDIRead = 0;
@@ -387,7 +398,7 @@ void NIDAQmx::startTasks()
 	else
 		DAQmxErrChk(NIDAQ::DAQmxCreateTask("AOTask_PXI", &taskHandleAO));
 
-	LOGC("Creating task for analog output: ", device->getName(), "/ao0");
+	LOGD("Creating task for analog output: ", device->getName(), "/ao0");
 
     DAQmxErrChk(NIDAQ::DAQmxCreateAOVoltageChan(
 		taskHandleAO,
@@ -400,10 +411,10 @@ void NIDAQmx::startTasks()
 	DAQmxErrChk(NIDAQ::DAQmxCfgSampClkTiming(
 		taskHandleAO, 
 		"",
-		40000, //TODO: This should be the active stream's sample rate (or the max of all active streams)
+		40000, //TODO: This should either be the active stream's sample rate or the max of all active streams
 		DAQmx_Val_Rising,
 		DAQmx_Val_ContSamps,
-		2000) //TODO: Optimal size here?
+		2000) //TODO: What is the optimal size here?
 	);
 
 	char ports[2048];
@@ -417,7 +428,11 @@ void NIDAQmx::startTasks()
 	for (auto& port : port_list)
 	{
 
-		if (port.length() && (portIdx*PORT_SIZE < dout.size()) && portIdx == 1) //hard-coded to port index 1 for now...
+		LOGD("Found port: ", port);
+		for (auto state : device->digitalPortStates)
+			LOGD("Port ", state.first, " is ", state.second ? "enabled" : "disabled");
+
+		if (port.length() && (portIdx*PORT_SIZE < dout.size()) && device->digitalPortStates[port.toRawUTF8()])
 		{
 
 			NIDAQ::TaskHandle taskHandleDO = 0;
@@ -427,7 +442,7 @@ void NIDAQmx::startTasks()
 			else
 				DAQmxErrChk(NIDAQ::DAQmxCreateTask(STR2CHR("DOTask_PXI"+getSerialNumber()+"port"+std::to_string(portIdx)), &taskHandleDO));
 
-			LOGC("Creating task for port: ", port);
+			LOGD("Creating task for port: ", port);
 
 			/* Create a channel for each digital output port */
 			DAQmxErrChk(NIDAQ::DAQmxCreateDOChan(
@@ -445,16 +460,17 @@ void NIDAQmx::startTasks()
 
 	}
 
-
-	LOGC("Starting analog task...");
+	LOGD("Starting Analog Output task.");
 	DAQmxErrChk(NIDAQ::DAQmxTaskControl(taskHandleAO, DAQmx_Val_Task_Commit));
 	DAQmxErrChk(NIDAQ::DAQmxStartTask(taskHandleAO));
-	LOGC("Started analog task.");
+	LOGD("Started Analog Output task.");
 
 	for (NIDAQ::TaskHandle taskHandle : taskHandlesDO)
 	{
+		LOGD("Starting Digital Output task.")
 		DAQmxErrChk(NIDAQ::DAQmxTaskControl(taskHandle, DAQmx_Val_Task_Commit));
 		DAQmxErrChk(NIDAQ::DAQmxStartTask(taskHandle));
+		LOGD("Started Digital Output task.")
 
 		NIDAQ::uInt8 eventData[1] = {0};
 		NIDAQ::int32 write;

@@ -118,6 +118,7 @@ public:
 	NIDAQ::uInt32 serialNum;
 	NIDAQ::uInt32 numAOChannels;
 	NIDAQ::uInt32 numDOChannels;
+	NIDAQ::uInt32 numDOPorts;
 
 	int digitalWriteSize;
 
@@ -127,6 +128,8 @@ public:
 
 	Array<SettingsRange> voltageRanges;
 	Array<NIDAQ::float64> adcResolutions;
+	
+	std::map<std::string,bool> digitalPortStates;
 
 private:
 
@@ -198,6 +201,9 @@ public:
 	/* 32-bit mask indicating which lines are currently enabled */
 	uint32 getActiveDigitalLines();
 
+	int getDefaultOutputPort() { return defaultOutputPort; };
+	std::vector<int> getActiveDigitalPorts() { return activeDigitalPorts; };
+
 	void startTasks();
 	void clearTasks();
 
@@ -227,6 +233,12 @@ private:
 	int deviceIndex = 0;
 	int sampleRateIndex = 0;
 	int voltageRangeIndex = 0;
+
+	/* Assign a default port to be assigned as output */
+	int defaultOutputPort = 1;
+
+	/* Port numbers assigned as all output */
+	std::vector<int> activeDigitalPorts { defaultOutputPort };
 
 	int digitalWriteSize = 0;
 
