@@ -123,13 +123,13 @@ void NIDAQOutput::updateSettings()
 bool NIDAQOutput::startAcquisition()
 {
     LOGC("Starting Tasks...");
-    mNIDAQ->startTasks();
+    //mNIDAQ->startTasks();
     return true;
 }
 
 bool NIDAQOutput::stopAcquisition()
 {
-    mNIDAQ->clearTasks();
+    mNIDAQ->stopThread(5000);
     return true;
 }
 
@@ -168,7 +168,7 @@ void NIDAQOutput::handleTTLEvent(TTLEventPtr event)
         return;
 
     if (mNIDAQ->sendsSynchronizedEvents())
-	    mNIDAQ->addEvent(event->getSampleNumber() - firstSampleNumber, eventBit, event->getState());
+	    mNIDAQ->addEvent(event->getSampleNumber(), eventBit, event->getState());
     else
         mNIDAQ->digitalWrite(eventBit, event->getState());
 }

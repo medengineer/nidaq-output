@@ -30,6 +30,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <string.h>
 
 #include "nidaq-api/NIDAQmx.h"
+
+#include "CircularBuffer.h"
+
 #define NUM_SAMPLE_RATES 17
 
 #define PORT_SIZE 8 //number of bits in a port
@@ -210,9 +213,9 @@ public:
 	void analogWrite(AudioBuffer<float>& buffer, int numSamples);
 	void digitalWrite(int channelIdx, bool state);
 
-	void run() override {};
+	void run() override;
 
-	void addEvent(int64 sampleNumber, uint8 ttlLine, bool state) { eventBuffer.add(new OutputEvent(sampleNumber, ttlLine, state)); };
+	void addEvent(int64 sampleNumber, uint8 ttlLine, bool state);
 
 	bool shouldSendSynchronizedEvents(bool sendSynchronizedEvents_) { sendSynchronizedEvents =  sendSynchronizedEvents_; };
 	bool sendsSynchronizedEvents() { return sendSynchronizedEvents; };
@@ -235,7 +238,7 @@ private:
 	int voltageRangeIndex = 0;
 
 	/* Assign a default port to be assigned as output */
-	int defaultOutputPort = 1;
+	int defaultOutputPort = 0;
 
 	/* Port numbers assigned as all output */
 	std::vector<int> activeDigitalPorts { defaultOutputPort };
@@ -268,9 +271,12 @@ private:
 		bool state;
 	};
 
-	OwnedArray<OutputEvent> eventBuffer;
+	CriticalSection lock;
 
-	bool sendSynchronizedEvents = true;
+	OwnedArray<OutputEvent> eventBuffer;
+	std::unique_ptr<CircularBuffer> analogOutBuffer;
+
+	bool sendSynchronizedEvents = false;
 
 };
 
