@@ -142,6 +142,8 @@ void NIDAQOutput::process (AudioBuffer<float>& buffer)
     int streamIdx = 0;
     for (auto stream : dataStreams)
     {
+
+        int64 firstSampleNumber = getFirstSampleNumberForBlock(stream->getStreamId());
         const uint16 streamId = stream->getStreamId();
 
         uint32 numSamples = getNumSamplesInBlock(streamId);
@@ -159,8 +161,16 @@ void NIDAQOutput::handleTTLEvent(TTLEventPtr event)
 {
     const int eventBit = event->getLine() + 1;
     DataStream* stream = getDataStream(event->getStreamId());
+    int64 firstSampleNumber = getFirstSampleNumberForBlock(event->getStreamId());
 
-    mNIDAQ->digitalWrite(eventBit, event->getState());
+    //TODO: Why does this always happen on the first loop?
+    if (event->getSampleNumber() - firstSampleNumber == 0)
+        return;
+
+    if (mNIDAQ->sendsSynchronizedEvents())
+	    mNIDAQ->addEvent(event->getSampleNumber() - firstSampleNumber, eventBit, event->getState());
+    else
+        mNIDAQ->digitalWrite(eventBit, event->getState());
 }
 
 void NIDAQOutput::saveCustomParametersToXml(XmlElement* xml)

@@ -151,6 +151,8 @@ NIDAQmx::NIDAQmx(NIDAQDevice* device_)
 	// Default to largest voltage range
 	voltageRangeIndex = device->voltageRanges.size() - 1;
 
+	eventBuffer.clear();
+
 }
 
 void NIDAQmx::connect()
@@ -526,27 +528,88 @@ void NIDAQmx::analogWrite(AudioBuffer<float>& buffer, int numSamples)
     char errBuff[2048] = { '\0' };
 
 	const int numChannels = 1;
-
-	HeapBlock<NIDAQ::float64> outputData(numChannels * numSamples);
-
-	for (int sample = 0; sample < numSamples; ++sample)
+	
+	//Write the analog data in batches based on event sample numbers
+	if (sendSynchronizedEvents && eventBuffer.size() > 0)
 	{
-		float inSample = buffer.getReadPointer(0)[sample];
-		outputData[sample] = static_cast<NIDAQ::float64>(inSample / 100.0f);
+
+		OutputEvent* eventOut = eventBuffer.removeAndReturn(0);
+
+		//Send analog data up to event
+		int samplesToWrite = eventOut->sampleNumber;
+
+		HeapBlock<NIDAQ::float64> outputData(numChannels * samplesToWrite);
+
+		for (int sample = 0; sample < samplesToWrite; ++sample)
+		{
+			float inSample = buffer.getReadPointer(0)[sample];
+			outputData[sample] = static_cast<NIDAQ::float64>(inSample / 100.0f);
+		}
+
+		DAQmxErrChk(NIDAQ::DAQmxWriteAnalogF64(
+			taskHandleAO,
+			samplesToWrite,
+			false,
+			10.0,
+			//DAQmx_Val_GroupByScanNumber,//[Ch1Sample1, Ch1Sample2, ...]
+			DAQmx_Val_GroupByChannel,	  //[Ch1Sample1, Ch2Sample1, ...]
+			outputData,
+			&numSamplesWritten,
+			nullptr));
+
+		//Send event
+		digitalWrite(eventOut->ttlLine, eventOut->state);
+
+		//Delete event
+		delete eventOut;
+
+		//Send rest of analog data
+		samplesToWrite = numSamples - eventOut->sampleNumber;
+
+		HeapBlock<NIDAQ::float64> outputData2(numChannels * samplesToWrite);
+
+		for (int sample = numSamplesWritten; sample < numSamplesWritten + samplesToWrite; ++sample)
+		{
+			float inSample = buffer.getReadPointer(0)[sample];
+			outputData2[sample-numSamplesWritten] = static_cast<NIDAQ::float64>(inSample / 100.0f);
+		}
+
+		DAQmxErrChk(NIDAQ::DAQmxWriteAnalogF64(
+			taskHandleAO,
+			samplesToWrite,
+			false,
+			10.0,
+			//DAQmx_Val_GroupByScanNumber,//[Ch1Sample1, Ch1Sample2, ...]
+			DAQmx_Val_GroupByChannel,	  //[Ch1Sample1, Ch2Sample1, ...]
+			outputData2,
+			&numSamplesWritten,
+			nullptr));
+
+	}
+	else // No events to synchronize, send data as-is
+	{
+		
+		//Send all data
+		HeapBlock<NIDAQ::float64> outputData(numChannels * numSamples);
+
+		for (int sample = 0; sample < numSamples; ++sample)
+		{
+			float inSample = buffer.getReadPointer(0)[sample];
+			outputData[sample] = static_cast<NIDAQ::float64>(inSample / 100.0f);
+		}
+
+		DAQmxErrChk(NIDAQ::DAQmxWriteAnalogF64(
+			taskHandleAO,
+			numSamples,
+			false,
+			10.0,
+			//DAQmx_Val_GroupByScanNumber,//[Ch1Sample1, Ch1Sample2, ...]
+			DAQmx_Val_GroupByChannel,	  //[Ch1Sample1, Ch2Sample1, ...]
+			outputData,
+			&numSamplesWritten,
+			nullptr));
 	}
 
-	DAQmxErrChk(NIDAQ::DAQmxWriteAnalogF64(
-		taskHandleAO,
-		numSamples,
-		false,
-		10.0,
-		//DAQmx_Val_GroupByScanNumber,//[Ch1Sample1, Ch1Sample2, ...]
-		DAQmx_Val_GroupByChannel,	  //[Ch1Sample1, Ch2Sample1, ...]
-		outputData,
-		&numSamplesWritten,
-		nullptr));
-
-	LOGD("Wrote ", numSamplesWritten, " samples.");
 
 Error:
 

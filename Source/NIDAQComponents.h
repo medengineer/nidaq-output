@@ -30,7 +30,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <string.h>
 
 #include "nidaq-api/NIDAQmx.h"
-
 #define NUM_SAMPLE_RATES 17
 
 #define PORT_SIZE 8 //number of bits in a port
@@ -207,6 +206,11 @@ public:
 
 	void run() override {};
 
+	void addEvent(int64 sampleNumber, uint8 ttlLine, bool state) { eventBuffer.add(new OutputEvent(sampleNumber, ttlLine, state)); };
+
+	bool shouldSendSynchronizedEvents(bool sendSynchronizedEvents_) { sendSynchronizedEvents =  sendSynchronizedEvents_; };
+	bool sendsSynchronizedEvents() { return sendSynchronizedEvents; };
+
 	Array<NIDAQ::float64> sampleRates;
 
 	OwnedArray<AnalogOutput> 	aout;
@@ -239,6 +243,22 @@ private:
 	std::map<int,int> digitalLineMap;
 
 	DataBuffer* aoBuffer;
+
+	struct OutputEvent
+	{
+		OutputEvent(int64 sampleNumber_, int ttlLine_, bool state_) :
+			sampleNumber(sampleNumber_),
+			ttlLine(ttlLine_),
+			state(state_)
+		{}
+		int64 sampleNumber;
+		uint8 ttlLine;
+		bool state;
+	};
+
+	OwnedArray<OutputEvent> eventBuffer;
+
+	bool sendSynchronizedEvents = true;
 
 };
 
