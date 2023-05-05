@@ -390,340 +390,7 @@ Error:
 void NIDAQmx::startTasks()
 {
 
-	/*
-    NIDAQ::int32 error = 0;
-    NIDAQ::int32 numSamplesWritten;
-    NIDAQ::float64 timeout = 10.0;
-    char errBuff[2048] = { '\0' };
-
-	StringArray port_list;
-
-	clearTasks();
-
-	taskHandleAO = 0;
-
-	if (device->isUSBDevice)
-		DAQmxErrChk(NIDAQ::DAQmxCreateTask("AOTask_USB", &taskHandleAO));
-	else
-		DAQmxErrChk(NIDAQ::DAQmxCreateTask("AOTask_PXI", &taskHandleAO));
-
-	LOGD("Creating task for analog output: ", device->getName(), "/ao0");
-
-    DAQmxErrChk(NIDAQ::DAQmxCreateAOVoltageChan(
-		taskHandleAO,
-		STR2CHR(device->getName() + "/ao0"), 
-		"", -10.0, 10.0,
-		DAQmx_Val_Volts,
-		nullptr)
-	);
-
-	DAQmxErrChk(NIDAQ::DAQmxCfgSampClkTiming(
-		taskHandleAO, 
-		"",
-		40000, //TODO: This should either be the active stream's sample rate or the max of all active streams
-		DAQmx_Val_Rising,
-		DAQmx_Val_ContSamps,
-		2000) //TODO: What is the optimal size here?
-	);
-
-	char ports[2048];
-	NIDAQ::DAQmxGetDevDOPorts(STR2CHR(device->getName()), &ports[0], sizeof(ports));
-
-	LOGD("Got ports: ", ports);
-
-	port_list.addTokens(&ports[0], ", ", "\"");
-
-	int portIdx = 0;
-	for (auto& port : port_list)
-	{
-
-		LOGD("Found port: ", port);
-		for (auto state : device->digitalPortStates)
-			LOGD("Port ", state.first, " is ", state.second ? "enabled" : "disabled");
-
-		if (port.length() && (portIdx*PORT_SIZE < dout.size()) && device->digitalPortStates[port.toRawUTF8()])
-		{
-
-			NIDAQ::TaskHandle taskHandleDO = 0;
-			//Create a digital input task using device serial number to gurantee unique task name per device
-			if (device->isUSBDevice)
-				DAQmxErrChk(NIDAQ::DAQmxCreateTask(STR2CHR("DOTask_USB"+getSerialNumber()+"port"+std::to_string(portIdx)), &taskHandleDO));
-			else
-				DAQmxErrChk(NIDAQ::DAQmxCreateTask(STR2CHR("DOTask_PXI"+getSerialNumber()+"port"+std::to_string(portIdx)), &taskHandleDO));
-
-			LOGC("Creating channel for port: ", port);
-
-			// Create a channel for each digital output port
-			DAQmxErrChk(NIDAQ::DAQmxCreateDOChan(
-				taskHandleDO,
-				STR2CHR(port),
-				"",
-				DAQmx_Val_ChanForAllLines)
-			);
-
-			//Configure timing
-			if (portIdx == 0)
-			{
-				LOGC("Configuring sample clk timing for: ", port);
-				DAQmxErrChk(NIDAQ::DAQmxCfgSampClkTiming(
-					taskHandleDO,
-					"",
-					40000, //TODO: This should either be the active stream's sample rate or the max of all active streams
-					DAQmx_Val_Rising,
-					DAQmx_Val_FiniteSamps,
-					2000) //TODO: What is the optimal size here?
-				);
-				LOGC("Configured sample clk timing for: ", port);
-			}
-
-			taskHandlesDO.push_back(taskHandleDO);
-
-		}
-
-		if (port.length()) portIdx++;
-
-	}
-
-	LOGC("Starting Analog Output task.");
-	DAQmxErrChk(NIDAQ::DAQmxTaskControl(taskHandleAO, DAQmx_Val_Task_Commit));
-	DAQmxErrChk(NIDAQ::DAQmxStartTask(taskHandleAO));
-	LOGC("Started Analog Output task.");
-
-	for (NIDAQ::TaskHandle taskHandle : taskHandlesDO)
-	{
-
-		NIDAQ::uInt8 eventData[1] = {0};
-		NIDAQ::int32 write;
-
-		LOGC("Writing event data to port");
-		DAQmxErrChk(NIDAQ::DAQmxWriteDigitalU8(
-			taskHandle,
-			1,
-			1,
-			10.0,
-			DAQmx_Val_GroupByChannel,
-			eventData,
-			&write,
-			nullptr
-		));
-		LOGC("Wrote event data to port");
-
-		LOGC("Starting Digital Output task.")
-		//DAQmxErrChk(NIDAQ::DAQmxTaskControl(taskHandle, DAQmx_Val_Task_Commit));
-		DAQmxErrChk(NIDAQ::DAQmxStartTask(taskHandle));
-		LOGC("Started Digital Output task.")
-	}
-
-	*/
-
-	LOGC("Start of NIDAQmx::startTasks()");
-
-	StringArray port_list;
-
-	clearTasks();
-
-    NIDAQ::int32 error = 0;
-    char errBuff[2048] = { '\0' };
-
-    taskHandleAO = 0;
-
-    NIDAQ::float64 analogSampleRate = 40000.0;
-    NIDAQ::float64 digitalSampleRate = 40000.0;
-    NIDAQ::uInt64 samplesPerChannel = 1000;
-
-    const char* source = "";
-    NIDAQ::int32 activeEdge = DAQmx_Val_Rising;
-   	NIDAQ::int32 sampleMode = DAQmx_Val_ContSamps;
-
-	// Create arrays to hold the analog and digital data
-    HeapBlock<NIDAQ::float64> analogData(samplesPerChannel);
-    HeapBlock<NIDAQ::uInt8> digitalData(samplesPerChannel);
-
-    // Create an analog output task
-    if (device->isUSBDevice)
-		DAQmxErrChk(NIDAQ::DAQmxCreateTask("AOTask_USB", &taskHandleAO));
-	else
-		DAQmxErrChk(NIDAQ::DAQmxCreateTask("AOTask_PXI", &taskHandleAO));
-    // Create an analog output channel
-	DAQmxErrChk(NIDAQ::DAQmxCreateAOVoltageChan(
-		taskHandleAO,
-		STR2CHR(device->getName() + "/ao0"), 
-		"", -10.0, 10.0,
-		DAQmx_Val_Volts,
-		nullptr)
-	);
-    // Configure the sample clock timing for the analog task
-    DAQmxErrChk(NIDAQ::DAQmxCfgSampClkTiming(taskHandleAO, "", analogSampleRate, activeEdge, sampleMode, samplesPerChannel));
-
-	char ports[2048];
-	NIDAQ::DAQmxGetDevDOPorts(STR2CHR(device->getName()), &ports[0], sizeof(ports));
-
-	LOGD("Got ports: ", ports);
-
-	port_list.addTokens(&ports[0], ", ", "\"");
-
-	int portIdx = 0;
-	for (auto& port : port_list)
-	{
-
-		LOGD("Found port: ", port);
-		for (auto state : device->digitalPortStates)
-			LOGD("Port ", state.first, " is ", state.second ? "enabled" : "disabled");
-
-		if (port.length() && (portIdx*PORT_SIZE < dout.size()) && device->digitalPortStates[port.toRawUTF8()])
-		{
-
-			NIDAQ::TaskHandle taskHandleDO = 0;
-			//Create a digital input task using device serial number to gurantee unique task name per device
-			if (device->isUSBDevice)
-				DAQmxErrChk(NIDAQ::DAQmxCreateTask(STR2CHR("DOTask_USB"+getSerialNumber()+"port"+std::to_string(portIdx)), &taskHandleDO));
-			else
-				DAQmxErrChk(NIDAQ::DAQmxCreateTask(STR2CHR("DOTask_PXI"+getSerialNumber()+"port"+std::to_string(portIdx)), &taskHandleDO));
-
-			LOGC("Creating channel for port: ", port);
-
-			// Create a channel for each digital output port
-			DAQmxErrChk(NIDAQ::DAQmxCreateDOChan(
-				taskHandleDO,
-				STR2CHR(port),
-				"",
-				DAQmx_Val_ChanForAllLines)
-			);
-
-			//Configure timing
-			if (portIdx == 0)
-			{
-				LOGC("Configuring sample clk timing for: ", port);
-				DAQmxErrChk(NIDAQ::DAQmxCfgSampClkTiming(
-					taskHandleDO,
-					"",
-					digitalSampleRate, //TODO: This should either be the active stream's sample rate or the max of all active streams
-					activeEdge,
-					sampleMode,
-					samplesPerChannel) //TODO: What is the optimal size here?
-				);
-				LOGC("Configured sample clk timing for: ", port);
-			}
-
-			taskHandlesDO.push_back(taskHandleDO);
-
-		}
-
-		if (port.length()) portIdx++;
-
-	}
-
-	LOGC("End of NIDAQmx::startTasks()");
-
-Error:
-
-	if (DAQmxFailed(error))
-		NIDAQ::DAQmxGetExtendedErrorInfo(errBuff, ERR_BUFF_SIZE);
-
-	if (DAQmxFailed(error))
-		LOGE("DAQmx Error: ", errBuff);
-	fflush(stdout);
-
-	return;
-}
-
-void NIDAQmx::clearTasks()
-{
-
-	NIDAQ::int32	error = 0;
-	char			errBuff[ERR_BUFF_SIZE] = { '\0' };
-
-	if (taskHandleAO > 0)
-	{
-		NIDAQ::DAQmxStopTask(taskHandleAO);
-		NIDAQ::DAQmxClearTask(taskHandleAO);
-		taskHandleAO = 0;
-	}
-
-	if (taskHandlesDO.size() > 0)
-	{
-		for (auto& taskHandle : taskHandlesDO)
-		{
-			NIDAQ::DAQmxStopTask(taskHandle);
-			NIDAQ::DAQmxClearTask(taskHandle);
-		}
-		taskHandlesDO.clear();
-	}
-
-Error:
-
-	if (DAQmxFailed(error))
-		NIDAQ::DAQmxGetExtendedErrorInfo(errBuff, ERR_BUFF_SIZE);
-
-	if (DAQmxFailed(error))
-		LOGE("DAQmx Error: ", errBuff);
-	fflush(stdout);
-
-	return;
-}
-
-void NIDAQmx::analogWrite(AudioBuffer<float>& buffer, int numSamples)
-{
-	NIDAQ::int32 error = 0;
-    NIDAQ::int32 numSamplesWritten;
-    NIDAQ::float64 timeout = 10.0;
-    char errBuff[2048] = { '\0' };
-
-	const int numChannels = 1;
 	
-	HeapBlock<NIDAQ::float64> outputData(numChannels*numSamples);
-
-	for (int sample = 0; sample < numChannels*numSamples; ++sample)
-	{
-		float inSample = buffer.getReadPointer(0)[sample];
-		outputData[sample] = static_cast<NIDAQ::float64>(inSample / 100.0f);
-	}
-
-	analogOutBuffer->write(outputData, numChannels*numSamples);
-
-	if (!isThreadRunning())
-	{
-		startThread();
-	}
-
-	/*
-	DAQmxErrChk(NIDAQ::DAQmxWriteAnalogF64(
-		taskHandleAO,
-		numSamples,
-		false,
-		10.0,
-		//DAQmx_Val_GroupByScanNumber,//[Ch1Sample1, Ch1Sample2, ...]
-		DAQmx_Val_GroupByChannel,	  //[Ch1Sample1, Ch2Sample1, ...]
-		outputData,
-		&numSamplesWritten,
-		nullptr));
-	*/
-
-Error:
-
-	if (DAQmxFailed(error))
-		NIDAQ::DAQmxGetExtendedErrorInfo(errBuff, ERR_BUFF_SIZE);
-
-	if (DAQmxFailed(error))
-		LOGE("DAQmx Error: ", errBuff);
-	fflush(stdout);
-
-	return;
-
-}
-
-void NIDAQmx::addEvent(int64 sampleNumber, uint8 ttlLine, bool state)
-{
-	lock.enter();
-	eventBuffer.add(new OutputEvent(sampleNumber, ttlLine, state));
-	lock.exit();
-}
-
-void NIDAQmx::run() 
-{
-
-	LOGC("Started NIDAQmx::run()");
-
 	StringArray port_list;
 
 	clearTasks();
@@ -845,12 +512,121 @@ void NIDAQmx::run()
 
 	}
 
-	LOGC("End of NIDAQmx::startTasks()");
+	// Start both analog and digital output tasks
+    DAQmxErrChk(NIDAQ::DAQmxStartTask(taskHandleAO));
+    if (sendsSynchronizedEvents()) DAQmxErrChk(NIDAQ::DAQmxStartTask(taskHandlesDO[0]));
 
-	// Fill the analogData and digitalData arrays 
-	//LOGC("Reading at idx: ", analogOutBuffer->get_read_index());
-	//analogOutBuffer->read(analogData, 1*samplesPerChannel);
+Error:
 
+	if (DAQmxFailed(error))
+		NIDAQ::DAQmxGetExtendedErrorInfo(errBuff, ERR_BUFF_SIZE);
+
+	if (DAQmxFailed(error))
+		LOGE("DAQmx Error: ", errBuff);
+	fflush(stdout);
+
+	return;
+
+}
+
+void NIDAQmx::clearTasks()
+{
+
+	NIDAQ::int32	error = 0;
+	char			errBuff[ERR_BUFF_SIZE] = { '\0' };
+
+	if (taskHandleAO > 0)
+	{
+		NIDAQ::DAQmxStopTask(taskHandleAO);
+		NIDAQ::DAQmxClearTask(taskHandleAO);
+		taskHandleAO = 0;
+	}
+
+	if (taskHandlesDO.size() > 0)
+	{
+		for (auto& taskHandle : taskHandlesDO)
+		{
+			NIDAQ::DAQmxStopTask(taskHandle);
+			NIDAQ::DAQmxClearTask(taskHandle);
+		}
+		taskHandlesDO.clear();
+	}
+
+Error:
+
+	if (DAQmxFailed(error))
+		NIDAQ::DAQmxGetExtendedErrorInfo(errBuff, ERR_BUFF_SIZE);
+
+	if (DAQmxFailed(error))
+		LOGE("DAQmx Error: ", errBuff);
+	fflush(stdout);
+
+	return;
+}
+
+void NIDAQmx::analogWrite(AudioBuffer<float>& buffer, int numSamples)
+{
+	NIDAQ::int32 error = 0;
+    NIDAQ::int32 numSamplesWritten;
+    NIDAQ::float64 timeout = 10.0;
+    char errBuff[2048] = { '\0' };
+
+	const int numChannels = 1;
+	
+	HeapBlock<NIDAQ::float64> outputData(numChannels*numSamples);
+
+	for (int sample = 0; sample < numChannels*numSamples; ++sample)
+	{
+		float inSample = buffer.getReadPointer(0)[sample];
+		outputData[sample] = static_cast<NIDAQ::float64>(inSample / 100.0f);
+	}
+
+	analogOutBuffer->write(outputData, numChannels*numSamples);
+
+	if (!isThreadRunning())
+	{
+		startThread();
+	}
+
+Error:
+
+	if (DAQmxFailed(error))
+		NIDAQ::DAQmxGetExtendedErrorInfo(errBuff, ERR_BUFF_SIZE);
+
+	if (DAQmxFailed(error))
+		LOGE("DAQmx Error: ", errBuff);
+	fflush(stdout);
+
+	return;
+
+}
+
+void NIDAQmx::addEvent(int64 sampleNumber, uint8 ttlLine, bool state)
+{
+	lock.enter();
+	eventBuffer.add(new OutputEvent(sampleNumber, ttlLine, state));
+	lock.exit();
+}
+
+void NIDAQmx::run() 
+{
+
+	NIDAQ::int32 error = 0;
+    char errBuff[2048] = { '\0' };
+
+    //taskHandleAO = 0;
+
+    NIDAQ::float64 analogSampleRate = 40000.0;
+    NIDAQ::float64 digitalSampleRate = 40000.0;
+    NIDAQ::uInt64 samplesPerChannel = 853;
+
+    const char* source = "";
+    NIDAQ::int32 activeEdge = DAQmx_Val_Rising;
+   	NIDAQ::int32 sampleMode = DAQmx_Val_ContSamps;
+
+	// Create arrays to hold the analog and digital data
+    HeapBlock<NIDAQ::float64> analogData(samplesPerChannel);
+    HeapBlock<NIDAQ::uInt8> digitalData(samplesPerChannel);
 
 	lock.enter();
 	LOGC("Event buffer size: ", eventBuffer.size());
@@ -861,24 +637,15 @@ void NIDAQmx::run()
 		LOGC("Processed event: ", oe->sampleNumber);
 		delete oe;
 	}
+
 	for (NIDAQ::uInt64 i = 0; i < samplesPerChannel; ++i)
 		digitalData[i] = 0x00; // Example: set all 8 lines of Port 0 to low
 
 	lock.exit();
 
-	NIDAQ::int32 totalWrittenSamples = 0;
-
-    NIDAQ::int32 writtenAnalogSamples = 0;
-    NIDAQ::int32 writtenDigitalSamples = 0;
-    NIDAQ::int32 timeout = 10;
-
     // Write the analog and digital data to the output buffers
     //DAQmxErrChk(NIDAQ::DAQmxWriteAnalogF64(taskHandleAO, samplesPerChannel, 0, timeout, DAQmx_Val_GroupByChannel, analogData, &writtenAnalogSamples, NULL));
     //if (sendsSynchronizedEvents()) DAQmxErrChk(NIDAQ::DAQmxWriteDigitalU8(taskHandlesDO[0], samplesPerChannel, 0, timeout, DAQmx_Val_GroupByChannel, digitalData, &writtenDigitalSamples, NULL));
-
-    // Start both analog and digital output tasks
-    DAQmxErrChk(NIDAQ::DAQmxStartTask(taskHandleAO));
-    if (sendsSynchronizedEvents()) DAQmxErrChk(NIDAQ::DAQmxStartTask(taskHandlesDO[0]));
 
 	eventCode = 0;
 
@@ -891,6 +658,12 @@ void NIDAQmx::run()
 		LOGC("Got write index: ", analogOutBuffer->get_write_index());
 	}
 	*/
+
+	int totalWrittenSamples = 0;
+	float timeout = 10.0;
+
+	NIDAQ::int32 writtenAnalogSamples = 0;
+	NIDAQ::int32 writtenDigitalSamples = 0;
 
 	while (!threadShouldExit())
 	{

@@ -123,7 +123,7 @@ void NIDAQOutput::updateSettings()
 bool NIDAQOutput::startAcquisition()
 {
     LOGC("Starting Tasks...");
-    //mNIDAQ->startTasks();
+    mNIDAQ->startTasks();
     return true;
 }
 
