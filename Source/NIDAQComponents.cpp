@@ -151,7 +151,7 @@ NIDAQmx::NIDAQmx(NIDAQDevice* device_)
 	// Default to largest voltage range
 	voltageRangeIndex = device->voltageRanges.size() - 1;
 
-	analogOutBuffer = std::make_unique<CircularBuffer>(200000);
+	analogOutBuffer = std::make_unique<CircularBuffer<double>>(200000);
 
 }
 

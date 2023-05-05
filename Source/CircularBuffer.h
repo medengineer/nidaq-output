@@ -3,11 +3,12 @@
 #include <atomic>
 #include <chrono>
 
+template <typename T>
 class CircularBuffer {
 public:
     CircularBuffer(size_t size) : buffer(size), read_index(0), write_index(0), size(size) {}
 
-    void write(const double* data, size_t numSamples) {
+    void write(const T* data, size_t numSamples) {
         std::unique_lock<std::mutex> lock(mutex);
         for (size_t i = 0; i < numSamples; i++) {
             buffer[write_index] = data[i];
@@ -16,7 +17,7 @@ public:
         cv.notify_one();
     }
 
-    void read(double* data, size_t numSamples) {
+    void read(T* data, size_t numSamples) {
         std::unique_lock<std::mutex> lock(mutex);
         cv.wait(lock, [this, numSamples] { return (write_index + size - read_index) % size >= numSamples; });
         for (int i = 0; i < numSamples; i++) {
@@ -36,7 +37,7 @@ public:
     }
 
 private:
-    std::vector<double> buffer;
+    std::vector<T> buffer;
     size_t read_index, write_index, size;
     std::mutex mutex;
     std::condition_variable cv;

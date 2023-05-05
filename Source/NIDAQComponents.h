@@ -274,7 +274,7 @@ private:
 	CriticalSection lock;
 
 	OwnedArray<OutputEvent> eventBuffer;
-	std::unique_ptr<CircularBuffer> analogOutBuffer;
+	std::unique_ptr<CircularBuffer<double>> analogOutBuffer;
 
 	bool sendSynchronizedEvents = false;
 
