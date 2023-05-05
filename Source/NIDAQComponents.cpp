@@ -614,8 +614,6 @@ void NIDAQmx::run()
 	NIDAQ::int32 error = 0;
     char errBuff[2048] = { '\0' };
 
-    //taskHandleAO = 0;
-
     NIDAQ::float64 analogSampleRate = 40000.0;
     NIDAQ::float64 digitalSampleRate = 40000.0;
     NIDAQ::uInt64 samplesPerChannel = 853;
@@ -643,21 +641,9 @@ void NIDAQmx::run()
 
 	lock.exit();
 
-    // Write the analog and digital data to the output buffers
-    //DAQmxErrChk(NIDAQ::DAQmxWriteAnalogF64(taskHandleAO, samplesPerChannel, 0, timeout, DAQmx_Val_GroupByChannel, analogData, &writtenAnalogSamples, NULL));
-    //if (sendsSynchronizedEvents()) DAQmxErrChk(NIDAQ::DAQmxWriteDigitalU8(taskHandlesDO[0], samplesPerChannel, 0, timeout, DAQmx_Val_GroupByChannel, digitalData, &writtenDigitalSamples, NULL));
-
 	eventCode = 0;
 
 	int loopCount = 0;
-
-	/*
-	while (analogOutBuffer->get_write_index() < 2*samplesPerChannel)
-	{
-		sleep(100);
-		LOGC("Got write index: ", analogOutBuffer->get_write_index());
-	}
-	*/
 
 	int totalWrittenSamples = 0;
 	float timeout = 10.0;
@@ -667,14 +653,6 @@ void NIDAQmx::run()
 
 	while (!threadShouldExit())
 	{
-
-		// Wait for the tasks to complete
-		//DAQmxErrChk(NIDAQ::DAQmxWaitUntilTaskDone(taskHandleAO, -1));
-		//DAQmxErrChk(NIDAQ::DAQmxWaitUntilTaskDone(taskHandlesDO[0], -1));
-
-		// Stop the tasks
-		//DAQmxErrChk(NIDAQ::DAQmxStopTask(taskHandleAO));
-		if (sendsSynchronizedEvents()) DAQmxErrChk(NIDAQ::DAQmxStopTask(taskHandlesDO[0]));
 
 		analogOutBuffer->read(analogData, 1*samplesPerChannel);
 
@@ -706,18 +684,9 @@ void NIDAQmx::run()
 				digitalData[i] = eventCode;
 		}
 
-		/*
-		for (NIDAQ::uInt64 i = 0; i < samplesPerChannel; ++i)
-			digitalData[i] = loopCount % 2 == 0 ? 0xFF : 0x00; // Example: set all 8 lines of Port 0 to low
-		*/
-
-		// Write the analog and digital data to the output buffers
+		// Write the analog and digital data to the output buffers synchronously
 		DAQmxErrChk(NIDAQ::DAQmxWriteAnalogF64(taskHandleAO, samplesPerChannel, 0, timeout, DAQmx_Val_GroupByChannel, analogData, &writtenAnalogSamples, NULL));
 		if (sendsSynchronizedEvents()) DAQmxErrChk(NIDAQ::DAQmxWriteDigitalU8(taskHandlesDO[0], samplesPerChannel, 0, timeout, DAQmx_Val_GroupByChannel, digitalData, &writtenDigitalSamples, NULL));
-
-		// Start both analog and digital output tasks
-		//DAQmxErrChk(NIDAQ::DAQmxStartTask(taskHandleAO));
-		if (sendsSynchronizedEvents()) DAQmxErrChk(NIDAQ::DAQmxStartTask(taskHandlesDO[0]));
 
 		loopCount++;
 
