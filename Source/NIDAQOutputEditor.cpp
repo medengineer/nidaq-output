@@ -299,11 +299,11 @@ PopupConfigurationWindow::PopupConfigurationWindow(NIDAQOutputEditor* editor_)
 
 	int activeAnalogCount = editor->getNumActiveAnalogOutputs();
     analogChannelCountSelect = new ComboBox ("Analog Count Selector");
-	for (int i = 4; i <= editor->getTotalAvailableAnalogOutputs(); i+=4)
+	for (int i = 0; i <= editor->getTotalAvailableAnalogOutputs(); i++)
 	{
-		analogChannelCountSelect->addItem(String(i), i / 4);
+		analogChannelCountSelect->addItem(String(i), i + 1);
 		if (i == activeAnalogCount)
-			analogChannelCountSelect->setSelectedId(i / 4, dontSendNotification);
+			analogChannelCountSelect->setSelectedId(i + 1, dontSendNotification);
 	}
     analogChannelCountSelect->setBounds (115, 8, 60, 20);
     analogChannelCountSelect->addListener (this);
@@ -522,8 +522,6 @@ void NIDAQOutputEditor::update(int numAnalog, int numDigital, int digitalWriteSi
 		processor->setNumActiveAnalogChannels(numAnalog);
 		processor->updateAnalogChannels();
 
-		CoreServices::updateSignalChain(this);
-
 		((CallOutBox*)currentConfigWindow->getParentComponent())->dismiss();
 	}
 
@@ -541,6 +539,8 @@ void NIDAQOutputEditor::update(int numAnalog, int numDigital, int digitalWriteSi
 	}
 
 	draw();
+
+	CoreServices::updateSignalChain(this);
 
 }
 
