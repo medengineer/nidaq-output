@@ -192,8 +192,6 @@ private:
 
     NIDAQOutput* processor;
 
-    std::unique_ptr<ComboBox> deviceSelector;
-
     OwnedArray<AOButton> aoButtons;
 	OwnedArray<TextButton> sourceTypeButtons;
 	OwnedArray<DOButton> doButtons;

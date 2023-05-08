@@ -546,9 +546,9 @@ void NIDAQOutputEditor::update(int numAnalog, int numDigital, int digitalWriteSi
 
 void NIDAQOutputEditor::comboBoxChanged(ComboBox* comboBoxThatHasChanged)
 {
-    if (comboBoxThatHasChanged == deviceSelector.get())
+    if (comboBoxThatHasChanged == deviceSelectBox)
     {
-        int deviceIndex = deviceSelector->getSelectedItemIndex();
+        int deviceIndex = deviceSelectBox->getSelectedItemIndex();
         processor->setDevice(processor->getDevices()[deviceIndex]->getName());
         CoreServices::updateSignalChain(this);
     }
