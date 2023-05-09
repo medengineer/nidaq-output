@@ -33,7 +33,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "CircularBuffer.h"
 
-#define NUM_SAMPLE_RATES 17
+#define NUM_SAMPLE_RATES 18
 
 #define PORT_SIZE 8 //number of bits in a port
 #define DEFAULT_NUM_ANALOG_OUTPUTS 2
@@ -346,16 +346,9 @@ private:
 	int numActiveAnalogOutputs = DEFAULT_NUM_ANALOG_OUTPUTS; //2
 	int numActiveDigitalOutputs = DEFAULT_NUM_DIGITAL_OUTPUTS; //8
 
-	HeapBlock<NIDAQ::float64> aout_data;
-
-	HeapBlock<NIDAQ::uInt32> eventCodes;
-
-	int64 aout_timestamp;
 	NIDAQ::uInt8 eventCode;
 
-	std::map<int,int> digitalLineMap;
-
-	DataBuffer* aoBuffer;
+	NIDAQ::uInt64 samplesPerChannel = 200;
 
 	struct OutputEvent
 	{
