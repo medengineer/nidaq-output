@@ -141,9 +141,14 @@ NIDAQmx::NIDAQmx(NIDAQDevice* device_)
 
 	sampleRates.clear();
 
+	LOGD("********* MAX SAMPLE RATE: ", device->sampleRateRange.max);
+
 	int idx = 0;
 	while (sample_rates[idx] <= device->sampleRateRange.max && idx < NUM_SAMPLE_RATES)
+	{
+		LOGC("***** Adding sample rate: ", sample_rates[idx]);
 		sampleRates.add(sample_rates[idx++]);
+	}
 
 	// Default to highest sample rate
 	sampleRateIndex = sampleRates.size() - 1;
@@ -153,6 +158,26 @@ NIDAQmx::NIDAQmx(NIDAQDevice* device_)
 
 	analogOutBuffer = std::make_unique<CircularBuffer<double>>(200000);
 
+}
+
+DeviceAOProperties NIDAQmx::getDeviceAOProperties(const char* device)
+{
+    DeviceAOProperties props;
+
+    NIDAQ::DAQmxGetDevAOPhysicalChans(device, props.physicalChans, sizeof(props.physicalChans));
+    NIDAQ::DAQmxGetDevAOSupportedOutputTypes(device, props.supportedOutputTypes, sizeof(props.supportedOutputTypes)/sizeof(int32));
+    NIDAQ::DAQmxGetDevAOMaxRate(device, &props.maxRate);
+    NIDAQ::DAQmxGetDevAOMinRate(device, &props.minRate);
+    NIDAQ::DAQmxGetDevAOSampClkSupported(device, &props.sampClkSupported);
+    NIDAQ::DAQmxGetDevAONumSampTimingEngines(device, &props.numSampTimingEngines);
+    NIDAQ::DAQmxGetDevAOSampModes(device, props.sampModes, sizeof(props.sampModes)/sizeof(int32));
+    NIDAQ::DAQmxGetDevAONumSyncPulseSrcs(device, &props.numSyncPulseSrcs);
+    NIDAQ::DAQmxGetDevAOTrigUsage(device, &props.trigUsage);
+    NIDAQ::DAQmxGetDevAOVoltageRngs(device, props.voltageRngs, sizeof(props.voltageRngs)/sizeof(NIDAQ::float64));
+    NIDAQ::DAQmxGetDevAOCurrentRngs(device, props.currentRngs, sizeof(props.currentRngs)/sizeof(NIDAQ::float64));
+    NIDAQ::DAQmxGetDevAOGains(device, props.gains, sizeof(props.gains)/sizeof(NIDAQ::float64));
+
+    return props;
 }
 
 void NIDAQmx::connect()
@@ -175,66 +200,32 @@ void NIDAQmx::connect()
 		NIDAQ::DAQmxGetDevProductCategory(STR2CHR(deviceName), &device->deviceCategory);
 		LOGD("Product Category: ", device->deviceCategory);
 
+		/* Check if USB device */
 		device->isUSBDevice = device->productName.contains("USB");
 
-		//device->digitalReadSize = device->isUSBDevice ? 32 : 8;
-
+		/* Product name */
 		NIDAQ::DAQmxGetDevProductNum(STR2CHR(deviceName), &device->productNum);
 		LOGD("Product Num: ", device->productNum);
 
+		/* Serial number */
 		NIDAQ::DAQmxGetDevSerialNum(STR2CHR(deviceName), &device->serialNum);
 		LOGD("Serial Num: ", device->serialNum);
 
-		/*
-		// Get simultaneous sampling supported
-		NIDAQ::bool32 supported = false;
-		NIDAQ::DAQmxGetDevAISimultaneousSamplingSupported(STR2CHR(deviceName), &supported);
-		device->simAISamplingSupported = supported;
-		LOGD("Simultaneous sampling supported: ", supported ? "YES" : "NO");
-		*/
+		/* Get device analog output properties */
+		DeviceAOProperties aoProps = getDeviceAOProperties(STR2CHR(deviceName));
+		aoProps.show();
 
-		// Get device sample rates
-
-		/*
-		NIDAQ::float64 smin;
-		NIDAQ::DAQmxGetDevAOMinRate(STR2CHR(deviceName), &smin);
-		LOGD("Min sample rate: ", smin);
-
-		NIDAQ::float64 smaxs;
-		NIDAQ::DAQmxGetDevAOMaxSingleChanRate(STR2CHR(deviceName), &smaxs);
-		LOGD("Max single channel sample rate: ", smaxs);
-
-		NIDAQ::float64 smaxm;
-		NIDAQ::DAQmxGetDevAOMaxMultiChanRate(STR2CHR(deviceName), &smaxm);
-		LOGD("Max multi channel sample rate: ", smaxm);
-		*/
-
-		NIDAQ::float64 data[512];
-		NIDAQ::DAQmxGetDevAOVoltageRngs(STR2CHR(deviceName), &data[0], sizeof(data));
-
-		// Get available voltage ranges
+		/* Define available voltage ranges */
 		device->voltageRanges.clear();
-		LOGD("Detected voltage ranges: \n");
-		for (int i = 0; i < 512; i += 2)
+		for (int i = 0; i < sizeof(aoProps.voltageRngs)/sizeof(NIDAQ::float64); i+=2)
 		{
-			NIDAQ::float64 vmin = data[i];
-			NIDAQ::float64 vmax = data[i + 1];
-			if (vmin == vmax || abs(vmin) < 1e-10 || vmax < 1e-2)
-				break;
-			device->voltageRanges.add(SettingsRange(vmin, vmax));
+			if (abs(aoProps.voltageRngs[i]) > 1000) break;
+			device->voltageRanges.add(SettingsRange(aoProps.voltageRngs[i], aoProps.voltageRngs[i+1]));
 		}
 
-		NIDAQ::int32	error = 0;
-		char			errBuff[ERR_BUFF_SIZE] = { '\0' };
-
-		char ai_channel_data[2048];
-		//NIDAQ::DAQmxGetDevAIPhysicalChans(STR2CHR(device->getName()), &ai_channel_data[0], sizeof(ai_channel_data));
-		NIDAQ::DAQmxGetDevAOPhysicalChans(STR2CHR(device->getName()), &ai_channel_data[0], sizeof(ai_channel_data));
-
-		LOGD(ai_channel_data);
-
+		/* Configure analog output channels */
 		StringArray channel_list;
-		channel_list.addTokens(&ai_channel_data[0], ", ");
+		channel_list.addTokens(&aoProps.physicalChans[0], ", ", "\"");
 
 		device->numAOChannels = 0;
 		aout.clear();
@@ -267,6 +258,9 @@ void NIDAQmx::connect()
 			}
 		}
 
+		NIDAQ::int32	error = 0;
+		char			errBuff[ERR_BUFF_SIZE] = { '\0' };
+
 		// Get ADC resolution for each voltage range (throwing error as is)
 		NIDAQ::TaskHandle adcResolutionQuery;
 
@@ -279,13 +273,13 @@ void NIDAQmx::connect()
 			vRange = device->voltageRanges[i];
 
 			DAQmxErrChk(NIDAQ::DAQmxCreateAOVoltageChan(
-				adcResolutionQuery,			//task handle
-				STR2CHR(aout[i]->getName()),	    //NIDAQ physical channel name (e.g. dev1/ai1)
-				"",							//user-defined channel name (optional)
-				//DAQmx_Val_Cfg_Default,		//input terminal configuration
-				vRange.min,					//min input voltage
-				vRange.max,					//max input voltage
-				DAQmx_Val_Volts,			//voltage units
+				adcResolutionQuery,				//task handle
+				STR2CHR(aout[i]->getName()),	//NIDAQ physical channel name (e.g. dev1/ai1)
+				"",								//user-defined channel name (optional)
+				//aout[i]->getSourceType(),		//input terminal configuration
+				vRange.min,						//min input voltage
+				vRange.max,						//max input voltage
+				DAQmx_Val_Volts,				//voltage units
 				NULL));
 
 			NIDAQ::float64 adcResolution;
@@ -334,9 +328,6 @@ void NIDAQmx::connect()
 						device->digitalPortStates[portName.toRawUTF8()] = false;
 				}
 
-				LOGD("Found digital line: ", fullName);
-				LOGD("Found port name: ", portName);
-
 				dout.add(new OutputChannel(fullName));
 
 				dout.getLast()->setAvailable(true);
@@ -350,19 +341,7 @@ void NIDAQmx::connect()
 		for (auto state : device->digitalPortStates)
 			LOGD("Port ", state.first, " is ", state.second ? "enabled" : "disabled");
 
-		NIDAQ::int32					di_read = 0;
-		static int						totalDIRead = 0;
-
-		// Start a digital task on port 2
-
-		// Set sample rate range
-		//NIDAQ::float64 smax = smaxm;
-		/*
-		if (!device->simAISamplingSupported)
-			smax /= numActiveAnalogOutputs;
-		*/
-
-		//device->sampleRateRange = SettingsRange(smin, smax);
+		device->sampleRateRange = SettingsRange(aoProps.maxRate, aoProps.maxRate);
 
 		analogOutBuffer.reset();
 

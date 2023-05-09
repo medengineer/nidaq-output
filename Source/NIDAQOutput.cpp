@@ -75,9 +75,6 @@ int NIDAQOutput::openConnection()
 
     mNIDAQ = new NIDAQmx(dm->getDeviceAtIndex(deviceIndex));
 
-    //TODO: Might need buffer for analog output 
-    // mNIDAQ->aoBuffer = sourceBuffers.getLast();
-
     sampleRateIndex = mNIDAQ->sampleRates.size() - 1;
     setSampleRate(sampleRateIndex);
 

@@ -390,7 +390,7 @@ void NIDAQOutputEditor::draw()
 
 	if (processor->getDeviceName() == "Simulated Device")
 	{
-		nAO = 8;
+		nAO = 2;
 		nDO = 8;
 	}
 	else
@@ -514,6 +514,7 @@ void NIDAQOutputEditor::draw()
 	//setDisplayName("NIDAQmx-(" + processor->getProductName() + ")");
 
 }
+
 void NIDAQOutputEditor::update(int numAnalog, int numDigital, int digitalWriteSize)
 {
 
@@ -611,4 +612,6 @@ void NIDAQOutputEditor::updateDevice(String deviceName)
         if (deviceSelectBox->getItemText(i).equalsIgnoreCase(processor->getDevices()[i]->productName))
             deviceSelectBox->setSelectedId(deviceSelectBox->getItemId(i), sendNotification);
     }
+
+	draw();
 }

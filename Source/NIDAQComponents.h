@@ -41,6 +41,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #define ERR_BUFF_SIZE 2048
 
+#define END_OF_BUFFER(x) (abs(x) > 1e8)
+
 #define STR2CHR( jString ) ((jString).toUTF8())
 #define DAQmxErrChk(functionCall) if( DAQmxFailed(error=(functionCall)) ) goto Error; else
 
@@ -54,6 +56,98 @@ enum SOURCE_TYPE {
 	NRSE,
 	DIFF,
 	PSEUDO_DIFF
+};
+
+struct DeviceAOProperties
+{
+    char physicalChans[256]; // Assuming max 256 characters
+	char termCfgs[256]; // Assuming max 256 characters
+    NIDAQ::int32 supportedOutputTypes[10]; // Assuming max 10 types
+    NIDAQ::float64 maxRate;
+    NIDAQ::float64 minRate;
+    NIDAQ::bool32 sampClkSupported;
+    NIDAQ::uInt32 numSampTimingEngines;
+    NIDAQ::int32 sampModes[10]; // Assuming max 10 modes
+    NIDAQ::uInt32 numSyncPulseSrcs;
+    NIDAQ::int32 trigUsage;
+    NIDAQ::float64 voltageRngs[10]; // Assuming max 10 ranges
+    NIDAQ::float64 currentRngs[10]; // Assuming max 10 ranges
+    NIDAQ::float64 gains[10]; // Assuming max 10 gains
+
+	#define END_OF_BUFFER(x) (abs(x) > 1e8)
+	
+	void show()
+    {
+		std::cout << "Physical Channels:\n";
+		StringArray channel_list;
+		channel_list.addTokens(&physicalChans[0], ", ", "\"");
+
+		std::cout << "Detected " << channel_list.size() << " analog input channels" << std::endl;
+
+		for (int i = 0; i < channel_list.size(); i++) {
+			if (channel_list[i].length())
+				std::cout << '\t' << channel_list[i] << '\n';
+		}
+        
+        std::cout << "Supported Output Types:\n";
+        for (int i = 0; i < sizeof(supportedOutputTypes)/sizeof(int32); ++i) {
+			if (END_OF_BUFFER(supportedOutputTypes[i])) break;
+            switch (supportedOutputTypes[i]) {
+			case DAQmx_Val_Voltage:
+            	std::cout << '\t' << "Voltage" << '\n';
+				break;
+			default:
+				std::cout << '\t' << "Unknown output type: " << sampModes[i] << '\n';
+				break;
+			}
+        }
+        
+        std::cout << "Max Rate: " << maxRate << '\n';
+        std::cout << "Min Rate: " << minRate << '\n';
+        std::cout << "Sample Clock Supported: " << (sampClkSupported ? "Yes" : "No") << '\n';
+        std::cout << "Number of Sample Timing Engines: " << numSampTimingEngines << '\n';
+        
+        std::cout << "Sample Modes:\n";
+        for (int i = 0; i < sizeof(sampModes)/sizeof(int32); ++i) {
+			if (END_OF_BUFFER(sampModes[i])) break;
+			switch (sampModes[i]) {
+			case DAQmx_Val_FiniteSamps:
+            	std::cout << '\t' << "Finite Samples" << '\n';
+				break;
+			case DAQmx_Val_ContSamps:
+				std::cout << '\t' << "Continuous Samples" << '\n';
+				break;
+			case DAQmx_Val_HWTimedSinglePoint:
+				std::cout << '\t' << "Hardware Timed Single Point" << '\n';
+				break;
+			default:
+				std::cout << '\t' << sampModes[i] << '\n';
+				break;
+			}
+        }
+
+        std::cout << "Number of Sync Pulse Sources: " << numSyncPulseSrcs << '\n';
+        std::cout << "Trigger Usage: " << trigUsage << '\n';
+        
+        std::cout << "Voltage Ranges:\n";
+        for (int i = 0; i < sizeof(voltageRngs)/sizeof(NIDAQ::float64); ++i) {
+			if (END_OF_BUFFER(voltageRngs[i])) break;
+            std::cout << '\t' << voltageRngs[i] << '\n';
+        }
+        
+        std::cout << "Current Ranges:\n";
+        for (int i = 0; i < sizeof(currentRngs)/sizeof(NIDAQ::float64); ++i) {
+			if (END_OF_BUFFER(currentRngs[i])) break;
+            std::cout << '\t' << currentRngs[i] << '\n';
+        }
+        
+        std::cout << "Gains:\n";
+        for (int i = 0; i < sizeof(gains)/sizeof(NIDAQ::float64); ++i) {
+			if (END_OF_BUFFER(gains[i])) break;
+            std::cout << '\t' << gains[i] << '\n';
+        }
+    }
+
 };
 
 struct SettingsRange {
@@ -131,6 +225,8 @@ public:
 
 	Array<SettingsRange> voltageRanges;
 	Array<NIDAQ::float64> adcResolutions;
+
+	StringArray analogOutputNames;
 	
 	std::map<std::string,bool> digitalPortStates;
 
@@ -180,6 +276,8 @@ public:
 	/* Unique device properties */
 	String getProductName() { return device->productName; };
 	String getSerialNumber() { return String(device->serialNum); };
+
+	DeviceAOProperties NIDAQmx::getDeviceAOProperties(const char* device);
 
 	/* Analog configuration */
 	NIDAQ::float64 getSampleRate() { return sampleRates[sampleRateIndex]; };
