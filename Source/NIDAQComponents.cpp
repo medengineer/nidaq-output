@@ -217,7 +217,7 @@ void NIDAQmx::connect()
 		device->voltageRanges.clear();
 		for (int i = 0; i < sizeof(aoProps.voltageRngs)/sizeof(NIDAQ::float64); i+=2)
 		{
-			if (abs(aoProps.voltageRngs[i]) > 1000) break;
+			if (abs(aoProps.voltageRngs[i]) < 1e-10) break;
 			device->voltageRanges.add(SettingsRange(aoProps.voltageRngs[i], aoProps.voltageRngs[i+1]));
 		}
 

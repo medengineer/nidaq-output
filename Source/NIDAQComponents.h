@@ -41,8 +41,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #define ERR_BUFF_SIZE 2048
 
-#define END_OF_BUFFER(x) (abs(x) > 1e8)
-
 #define STR2CHR( jString ) ((jString).toUTF8())
 #define DAQmxErrChk(functionCall) if( DAQmxFailed(error=(functionCall)) ) goto Error; else
 
@@ -78,20 +76,19 @@ struct DeviceAOProperties
 	
 	void show()
     {
-		std::cout << "Physical Channels:\n";
 		StringArray channel_list;
 		channel_list.addTokens(&physicalChans[0], ", ", "\"");
 
-		std::cout << "Detected " << channel_list.size() << " analog input channels" << std::endl;
+		LOGC("Detected analog input channels: ");
 
 		for (int i = 0; i < channel_list.size(); i++) {
 			if (channel_list[i].length())
-				std::cout << '\t' << channel_list[i] << '\n';
+				LOGC('\t', channel_list[i]);
 		}
         
-        std::cout << "Supported Output Types:\n";
+        LOGC("Supported Output Types:");
         for (int i = 0; i < sizeof(supportedOutputTypes)/sizeof(int32); ++i) {
-			if (END_OF_BUFFER(supportedOutputTypes[i])) break;
+			if (supportedOutputTypes[i] == 0) break;
             switch (supportedOutputTypes[i]) {
 			case DAQmx_Val_Voltage:
             	std::cout << '\t' << "Voltage" << '\n';
@@ -109,7 +106,7 @@ struct DeviceAOProperties
         
         std::cout << "Sample Modes:\n";
         for (int i = 0; i < sizeof(sampModes)/sizeof(int32); ++i) {
-			if (END_OF_BUFFER(sampModes[i])) break;
+			if (sampModes[i] < DAQmx_Val_FiniteSamps) break;
 			switch (sampModes[i]) {
 			case DAQmx_Val_FiniteSamps:
             	std::cout << '\t' << "Finite Samples" << '\n';
@@ -131,19 +128,19 @@ struct DeviceAOProperties
         
         std::cout << "Voltage Ranges:\n";
         for (int i = 0; i < sizeof(voltageRngs)/sizeof(NIDAQ::float64); ++i) {
-			if (END_OF_BUFFER(voltageRngs[i])) break;
+			if (abs(voltageRngs[i]) < 1e-10) break;
             std::cout << '\t' << voltageRngs[i] << '\n';
         }
         
         std::cout << "Current Ranges:\n";
         for (int i = 0; i < sizeof(currentRngs)/sizeof(NIDAQ::float64); ++i) {
-			if (END_OF_BUFFER(currentRngs[i])) break;
+			if (abs(currentRngs[i]) < 1e-10) break;
             std::cout << '\t' << currentRngs[i] << '\n';
         }
         
         std::cout << "Gains:\n";
         for (int i = 0; i < sizeof(gains)/sizeof(NIDAQ::float64); ++i) {
-			if (END_OF_BUFFER(gains[i])) break;
+			if (abs(gains[i]) < 1e-10) break;
             std::cout << '\t' << gains[i] << '\n';
         }
     }
