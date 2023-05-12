@@ -252,6 +252,8 @@ void NIDAQmx::connect()
 				}
 
 				LOGD("Adding analog output channel: ", name, " with terminal config: ", " (", termCfgs, ") enabled: ", aout.getLast()->isEnabled() ? "YES" : "NO");
+
+				if (aout.size() == MAX_NUM_ANALOG_OUTPUTS) break;
 				
 			}
 		}

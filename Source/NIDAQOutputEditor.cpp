@@ -406,10 +406,6 @@ void NIDAQOutputEditor::draw()
 	voltageRangeSelectBox->addListener(this);
 	addAndMakeVisible(voltageRangeSelectBox);
 
-	//fifoMonitor = new FifoMonitor(processor);
-	//fifoMonitor->setBounds(xOffset + 2, 105, 70, 12);
-	//addAndMakeVisible(fifoMonitor);
-
 	configureDeviceButton = new UtilityButton("...", Font("Small Text", 12, Font::plain));
 	configureDeviceButton->setBounds(xOffset + 60, 25, 24, 12);
 	configureDeviceButton->addListener(this);
@@ -423,9 +419,6 @@ void NIDAQOutputEditor::draw()
 	addAndMakeVisible(background);
 	background->toBack();
 	background->repaint();
-
-	//TODO: Why this line casuses crash in editor->update in v6?
-	//setDisplayName("NIDAQmx-(" + processor->getProductName() + ")");
 
 }
 
