@@ -228,7 +228,8 @@ public:
 
 	StringArray analogOutputNames;
 	
-	std::map<std::string,bool> digitalPortStates;
+	Array<std::string> digitalPortNames;
+	Array<bool> digitalPortStates;
 
 private:
 
@@ -299,6 +300,10 @@ public:
 	void setDigitalWriteSize(int digitalWriteSize_) { digitalWriteSize = digitalWriteSize_; };
 	int getDigitalWriteSize() { return digitalWriteSize; };
 
+	int getNumPorts() { return device->digitalPortNames.size(); };
+	bool getPortState(int idx) { return device->digitalPortStates[idx]; };
+	void setPortState(int idx, bool state) { device->digitalPortStates.set(idx, state); };
+
 	/* 32-bit mask indicating which lines are currently enabled */
 	uint32 getActiveDigitalLines();
 
@@ -341,7 +346,7 @@ private:
 	/* Port numbers assigned as all output */
 	std::vector<int> activeDigitalPorts { defaultOutputPort };
 
-	int digitalWriteSize = 0;
+	int digitalWriteSize = 8;
 
 	int numActiveAnalogOutputs = DEFAULT_NUM_ANALOG_OUTPUTS; //2
 	int numActiveDigitalOutputs = DEFAULT_NUM_DIGITAL_OUTPUTS; //8

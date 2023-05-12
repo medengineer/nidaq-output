@@ -169,15 +169,3 @@ void NIDAQOutput::handleTTLEvent(TTLEventPtr event)
     else
         mNIDAQ->digitalWrite(eventBit, event->getState());
 }
-
-void NIDAQOutput::saveCustomParametersToXml(XmlElement* xml)
-{
-    xml->setAttribute("device", mNIDAQ->device->getName());
-}
-
-void NIDAQOutput::loadCustomParametersFromXml(XmlElement* xml)
-{
-    setDevice(xml->getStringAttribute("device", ""));
-    NIDAQOutputEditor* ed = (NIDAQOutputEditor*) editor.get();
-    ed->updateDevice(xml->getStringAttribute("device", ""));
-}

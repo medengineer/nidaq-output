@@ -93,6 +93,11 @@ public:
 	int getDigitalWriteSize() { return mNIDAQ->getDigitalWriteSize(); };
 	void setDigitalWriteSize(int size) { mNIDAQ->setDigitalWriteSize(size); };
 
+    // Returns the state of the digital ports to be used as input
+	int getNumPorts() { return mNIDAQ->getNumPorts(); };
+	bool getPortState(int portIdx) { return mNIDAQ->getPortState(portIdx); };
+	void setPortState(int portIdx, bool state) { mNIDAQ->setPortState(portIdx, state); };
+
     int getTotalAvailableDigitalPorts() { return mNIDAQ->device->numDOPorts; };
     std::vector<int> getActiveDigitalPorts() { return mNIDAQ->getActiveDigitalPorts(); };
 
@@ -127,12 +132,6 @@ public:
 
     /** Creates the NIDAQOutputEditor. */
     AudioProcessorEditor* createEditor() override;
-
-    /** Saves the connected device */
-    void saveCustomParametersToXml(XmlElement* parentElement) override;
-
-    /** Loads the connected device */
-    void loadCustomParametersFromXml(XmlElement* xml) override;
 
 private:
 

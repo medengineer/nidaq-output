@@ -199,6 +199,8 @@ void NIDAQmx::connect()
 		/* Check if USB device */
 		device->isUSBDevice = device->productName.contains("USB");
 
+		device->digitalWriteSize = device->isUSBDevice ? 32 : 8;
+
 		/* Product name */
 		NIDAQ::DAQmxGetDevProductNum(STR2CHR(deviceName), &device->productNum);
 		LOGD("Product Num: ", device->productNum);
@@ -300,6 +302,7 @@ void NIDAQmx::connect()
 		channel_list.clear();
 		channel_list.addTokens(&di_channel_data[0], ", ", "\"");
 
+		device->digitalPortNames.clear();
 		device->digitalPortStates.clear();
 		device->numDOChannels = 0;
 		dout.clear();
@@ -315,27 +318,26 @@ void NIDAQmx::connect()
 				String lineName = fullName.fromFirstOccurrenceOf("/", false, false);
 				String portName = fullName.upToLastOccurrenceOf("/", false, false);
 
-				int FORCE_ACTIVE_PORT = 0;
-				if (!device->digitalPortStates.count(portName.toRawUTF8()))
+				// Add port to list of ports
+				if (!device->digitalPortNames.contains(portName.toRawUTF8()))
 				{
-					if (device->digitalPortStates.size() == FORCE_ACTIVE_PORT)
-						device->digitalPortStates[portName.toRawUTF8()] = true;
+					device->digitalPortNames.add(portName.toRawUTF8());
+					if (device->numDOChannels < numActiveDigitalOutputs)
+						device->digitalPortStates.add(true);
 					else
-						device->digitalPortStates[portName.toRawUTF8()] = false;
+						device->digitalPortStates.add(false);
 				}
 
 				dout.add(new OutputChannel(fullName));
 
 				dout.getLast()->setAvailable(true);
-				if (device->numDOChannels++ < numActiveDigitalOutputs)
+				if (device->numDOChannels < numActiveDigitalOutputs)
 					dout.getLast()->setEnabled(true);
+
+				device->numDOChannels++;
 
 			}
 		}
-
-		LOGD("Found ", dout.size(), " digital output channels across ", device->digitalPortStates.size(), " ports");
-		for (auto state : device->digitalPortStates)
-			LOGD("Port ", state.first, " is ", state.second ? "enabled" : "disabled");
 
 		device->sampleRateRange = SettingsRange(aoProps.maxRate, aoProps.maxRate);
 
@@ -411,11 +413,7 @@ void NIDAQmx::startTasks()
 	for (auto& port : port_list)
 	{
 
-		LOGD("Found port: ", port);
-		for (auto state : device->digitalPortStates)
-			LOGD("Port ", state.first, " is ", state.second ? "enabled" : "disabled");
-
-		if (port.length() && (portIdx*PORT_SIZE < dout.size()) && device->digitalPortStates[port.toRawUTF8()])
+		if (port.length() && (portIdx*PORT_SIZE < dout.size()) && device->digitalPortStates[portIdx])
 		{
 
 			LOGD("Adding digital output task on port ", portIdx, " (", port, ")");

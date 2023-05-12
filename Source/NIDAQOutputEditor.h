@@ -39,37 +39,6 @@ class NIDAQOutputEditor;
 
 */
 
-class PopupConfigurationWindow : public Component, public ComboBox::Listener
-{
-
-public:
-    
-    /** Constructor */
-    PopupConfigurationWindow(NIDAQOutputEditor* editor);
-
-    /** Destructor */
-    ~PopupConfigurationWindow() { }
-
-	void comboBoxChanged(ComboBox*);
-
-private:
-
-	NIDAQOutputEditor* editor;
-
-    ScopedPointer<Label>  analogLabel;
-    ScopedPointer<ComboBox> analogChannelCountSelect;
-
-	ScopedPointer<Label>  digitalLabel;
-	ScopedPointer<ComboBox> digitalChannelCountSelect;
-
-	ScopedPointer<Label>  digitalWriteLabel;
-	ScopedPointer<ComboBox> digitalWriteSelect;
-
-	ScopedPointer<Label> digitalPortsLabel;
-	ScopedPointer<ComboBox> digitalPortsSelect;
-
-};
-
 class EditorBackground : public Component
 {
 public:
@@ -148,6 +117,42 @@ private:
 
 };
 
+class PopupConfigurationWindow : public Component, public ComboBox::Listener, public Button::Listener
+{
+
+public:
+    
+    /** Constructor */
+    PopupConfigurationWindow(NIDAQOutputEditor* editor);
+
+    /** Destructor */
+    ~PopupConfigurationWindow() { }
+
+	void comboBoxChanged(ComboBox*);
+	void buttonClicked(Button* button) override;
+
+	void paint(Graphics& g) override;
+
+private:
+
+	NIDAQOutputEditor* editor;
+
+    ScopedPointer<Label>  analogLabel;
+    ScopedPointer<ComboBox> analogChannelCountSelect;
+
+	ScopedPointer<Label>  digitalLabel;
+	ScopedPointer<ComboBox> digitalChannelCountSelect;
+
+	ScopedPointer<Label>  digitalWriteLabel;
+	ScopedPointer<ComboBox> digitalWriteSelect;
+
+	ScopedPointer<Label> digitalPortsLabel;
+	ScopedPointer<ComboBox> digitalPortsSelect;
+
+	OwnedArray<ToggleButton> digitalPortButtons;
+
+};
+
 class NIDAQOutputEditor : public GenericEditor,
                             public ComboBox::Listener,
                             public Button::Listener
@@ -185,9 +190,13 @@ public:
 
 	int getDigitalWriteSize() { return processor->getDigitalWriteSize(); };
 
-	int getTotalAvailableDigitalPorts() { return processor->getTotalAvailableDigitalPorts(); };
-	std::vector<int> getActiveDigitalPorts() { return processor->getActiveDigitalPorts(); };
+	int getNumPorts() { return processor->getNumPorts(); };
+	bool getPortState(int idx) { return processor->getPortState(idx); };
+	void setPortState(int idx, bool state) { processor->setPortState(idx, state); };
 
+	void saveCustomParametersToXml(XmlElement*) override;
+	void loadCustomParametersFromXml(XmlElement*) override;
+	
 private:
 
     NIDAQOutput* processor;

@@ -286,92 +286,6 @@ void SourceTypeButton::timerCallback()
 
 }
 
-PopupConfigurationWindow::PopupConfigurationWindow(NIDAQOutputEditor* editor_)
-    : editor(editor_)
-{
-    //tableHeader.reset(new TableHeaderComponent());
-
-	analogLabel = new Label ("Analog", "Analog Outputs: ");
-	analogLabel->setFont(Font(16.0f, Font::bold));
-	analogLabel->setColour(Label::textColourId, Colours::white);
-    analogLabel->setBounds (2, 8, 110, 20);
-    addAndMakeVisible(analogLabel);
-
-	int activeAnalogCount = editor->getNumActiveAnalogOutputs();
-    analogChannelCountSelect = new ComboBox ("Analog Count Selector");
-	for (int i = 0; i <= editor->getTotalAvailableAnalogOutputs(); i++)
-	{
-		analogChannelCountSelect->addItem(String(i), i + 1);
-		if (i == activeAnalogCount)
-			analogChannelCountSelect->setSelectedId(i + 1, dontSendNotification);
-	}
-    analogChannelCountSelect->setBounds (115, 8, 60, 20);
-    analogChannelCountSelect->addListener (this);
-    addAndMakeVisible (analogChannelCountSelect);
-
-	digitalLabel = new Label ("Digital", "Digital Outputs: ");
-	digitalLabel->setColour(Label::textColourId, Colours::white);
-    digitalLabel->setBounds (2, 33, 110, 20);
-    addAndMakeVisible(digitalLabel);
-
-	int activeDigitalCount = editor->getNumActiveDigitalOutputs();
-    digitalChannelCountSelect = new ComboBox ("Digital Count Selector");
-	for (int i = 0; i <= editor->getTotalAvailableDigitalOutputs(); i+=4)
-	{
-		digitalChannelCountSelect->addItem(String(i), i / 4 + 1);
-		if (i == activeDigitalCount)
-			digitalChannelCountSelect->setSelectedId(i / 4 + 1, dontSendNotification);
-	}
-    digitalChannelCountSelect->setBounds (115, 33, 60, 20);
-    digitalChannelCountSelect->addListener (this);
-    addAndMakeVisible (digitalChannelCountSelect);
-
-	digitalWriteLabel = new Label ("Digital Write", "Digital Write: ");
-	digitalWriteLabel->setColour(Label::textColourId, Colours::white);
-	digitalWriteLabel->setBounds (2, 58, 110, 20);
-	addAndMakeVisible(digitalWriteLabel);
-
-	digitalWriteSelect = new ComboBox("Digital Write Selector");
-	Array<int> digitalWriteOptions = { 8, 16, 32 };
-	for (int i = 0; i < digitalWriteOptions.size(); i++)
-	{
-		digitalWriteSelect->addItem(String(digitalWriteOptions[i]) + " bits", i + 1);
-		if (digitalWriteOptions[i] == editor->getDigitalWriteSize())
-			digitalWriteSelect->setSelectedId(i + 1, dontSendNotification);
-	}
-	digitalWriteSelect->setBounds(115, 58, 60, 20);
-	digitalWriteSelect->addListener(this);
-	addAndMakeVisible(digitalWriteSelect);
-
-	/*
-	digitalPortsLabel = new Label("Digital Ports", "Digital Ports: ");
-	digitalPortsLabel->setColour(Label::textColourId, Colours::white);
-	digitalPortsLabel->setBounds(2, 83, 110, 20);
-	addAndMakeVisible(digitalPortsLabel);
-
-    std::vector<int> digitalPorts = editor->getDigitalPorts();
-	digitalPortsSelect = new ComboBox ("Digital Port Selector");
-	for (int i = 0; i < digitalPorts.size(); i++)
-	{
-		digitalPortsSelect->addItem(digitalPorts[i], i + 1);
-		if (digitalPorts[i] == editor->getPortNameForIndex(i)
-			digitalPortsSelect->setSelectedId(i + 1, dontSendNotirfication);
-	}
-	*/
-
-    setSize(180, 80);
-
-}
-
-void PopupConfigurationWindow::comboBoxChanged(ComboBox* comboBox)
-{
-	int numAnalogOutputs = int(analogChannelCountSelect->getItemText(analogChannelCountSelect->getSelectedId() - 1).getFloatValue());
-	int numDigitalOutputs = int(digitalChannelCountSelect->getItemText(digitalChannelCountSelect->getSelectedId() - 1).getFloatValue());
-	int digitalWrite = int(digitalWriteSelect->getItemText(digitalWriteSelect->getSelectedId() - 1).getFloatValue());
-
-	editor->update(numAnalogOutputs, numDigitalOutputs, digitalWrite);
-}
-
 NIDAQOutputEditor::NIDAQOutputEditor(GenericProcessor* parentNode)
     : GenericEditor(parentNode)
 
@@ -614,4 +528,185 @@ void NIDAQOutputEditor::updateDevice(String deviceName)
     }
 
 	draw();
+}
+
+PopupConfigurationWindow::PopupConfigurationWindow(NIDAQOutputEditor* editor_)
+    : editor(editor_)
+{
+    //tableHeader.reset(new TableHeaderComponent());
+
+	analogLabel = new Label ("Analog", "Analog Outputs: ");
+	analogLabel->setFont(Font(16.0f, Font::bold));
+	analogLabel->setColour(Label::textColourId, Colours::white);
+    analogLabel->setBounds (2, 8, 110, 20);
+    addAndMakeVisible(analogLabel);
+
+	int activeAnalogCount = editor->getNumActiveAnalogOutputs();
+    analogChannelCountSelect = new ComboBox ("Analog Count Selector");
+	for (int i = 0; i <= editor->getTotalAvailableAnalogOutputs(); i++)
+	{
+		analogChannelCountSelect->addItem(String(i), i + 1);
+		if (i == activeAnalogCount)
+			analogChannelCountSelect->setSelectedId(i + 1, dontSendNotification);
+	}
+    analogChannelCountSelect->setBounds (115, 8, 60, 20);
+    analogChannelCountSelect->addListener (this);
+    addAndMakeVisible (analogChannelCountSelect);
+
+	digitalLabel = new Label ("Digital", "Digital Outputs: ");
+	digitalLabel->setColour(Label::textColourId, Colours::white);
+    digitalLabel->setBounds (2, 33, 110, 20);
+    addAndMakeVisible(digitalLabel);
+
+	int activeDigitalCount = editor->getNumActiveDigitalOutputs();
+    digitalChannelCountSelect = new ComboBox ("Digital Count Selector");
+	for (int i = 0; i <= editor->getTotalAvailableDigitalOutputs(); i+=4)
+	{
+		digitalChannelCountSelect->addItem(String(i), i / 4 + 1);
+		if (i == activeDigitalCount)
+			digitalChannelCountSelect->setSelectedId(i / 4 + 1, dontSendNotification);
+	}
+    digitalChannelCountSelect->setBounds (115, 33, 60, 20);
+    digitalChannelCountSelect->addListener (this);
+    addAndMakeVisible (digitalChannelCountSelect);
+
+	digitalWriteLabel = new Label ("Digital Write", "Digital Write: ");
+	digitalWriteLabel->setColour(Label::textColourId, Colours::white);
+	digitalWriteLabel->setBounds (2, 58, 110, 20);
+	addAndMakeVisible(digitalWriteLabel);
+
+	digitalWriteSelect = new ComboBox("Digital Write Selector");
+	Array<int> digitalWriteOptions = { 8, 16, 32 };
+	for (int i = 0; i < digitalWriteOptions.size(); i++)
+	{
+		digitalWriteSelect->addItem(String(digitalWriteOptions[i]) + " bits", i + 1);
+		if (digitalWriteOptions[i] == editor->getDigitalWriteSize())
+			digitalWriteSelect->setSelectedId(i + 1, dontSendNotification);
+	}
+	digitalWriteSelect->setBounds(115, 58, 60, 20);
+	digitalWriteSelect->addListener(this);
+	addAndMakeVisible(digitalWriteSelect);
+
+	for (int i = 0; i < editor->getNumPorts(); i++)
+	{
+		ToggleButton* button = new ToggleButton("P"+String(i));
+		button->setBounds(i * 60 + 5, 85, 58, 20);
+		button->addListener(this);
+		button->setToggleState(editor->getPortState(i), juce::dontSendNotification);
+		addAndMakeVisible(button);
+		digitalPortButtons.add(button);
+	}
+
+	setSize(180, 110);
+
+}
+
+void PopupConfigurationWindow::comboBoxChanged(ComboBox* comboBox)
+{
+	int numAnalogOutputs = int(analogChannelCountSelect->getItemText(analogChannelCountSelect->getSelectedId() - 1).getFloatValue());
+	int numDigitalOutputs = int(digitalChannelCountSelect->getItemText(digitalChannelCountSelect->getSelectedId() - 1).getFloatValue());
+	int digitalWrite = int(digitalWriteSelect->getItemText(digitalWriteSelect->getSelectedId() - 1).getFloatValue());
+
+	editor->update(numAnalogOutputs, numDigitalOutputs, digitalWrite);
+}
+
+void PopupConfigurationWindow::paint(juce::Graphics& g)
+{
+	// Set the background color of toggle buttons based on their state
+	for (int i = 0; i < digitalPortButtons.size(); ++i)
+	{
+		ToggleButton* button = digitalPortButtons[i];
+		g.setColour(button->getToggleState() ? juce::Colours::green : juce::Colours::red);
+		g.fillRect(button->getBounds());
+	}
+}
+
+void PopupConfigurationWindow::buttonClicked(juce::Button* button)
+{
+	int portIdx = button->getName().getLastCharacter()-'0';
+	editor->setPortState(portIdx, button->getToggleState());
+	repaint();
+}
+
+void NIDAQOutputEditor::saveCustomParametersToXml(XmlElement* xml)
+{
+    xml->setAttribute("device", processor->getDeviceName());
+    xml->setAttribute("sampleRate", processor->getSampleRate());
+	xml->setAttribute("voltageRange", processor->getVoltageRangeIndex());
+
+	xml->setAttribute("numAnalog", getNumActiveAnalogOutputs());
+	xml->setAttribute("numDigital", getNumActiveDigitalOutputs());
+	xml->setAttribute("digitalWriteSize", getDigitalWriteSize());
+
+	String digitalPortStates = "";
+	for (int i = 0; i < getNumPorts(); i++)
+		digitalPortStates += getPortState(i) ? "1" : "0";
+	xml->setAttribute("digitalPortStates", digitalPortStates);
+}
+
+void NIDAQOutputEditor::loadCustomParametersFromXml(XmlElement* xml)
+{
+    processor->setDevice(xml->getStringAttribute("device", ""));
+	updateDevice(xml->getStringAttribute("device", ""));
+
+    float sampleRate = xml->getStringAttribute("sampleRate", "0.0").getFloatValue();
+
+	// Load sample rate
+	if (sampleRate > 0.0f)
+	{
+		int idx = 0;
+		for (auto& sr : processor->getSampleRates())
+		{
+			if (sr == sampleRate)
+			{
+				LOGD("Setting saved sample rate: " + String(sampleRate) + " (" + String(idx) + ")");
+				sampleRateSelectBox->setSelectedItemIndex(idx, true);
+				break;
+			}
+			idx++;
+		}
+	}
+
+	// Load voltage range
+	int voltageRangeIndex = xml->getStringAttribute("voltageRange", "-1").getIntValue();
+
+	if (voltageRangeIndex >= 0)
+	{
+		processor->setVoltageRange(voltageRangeIndex);
+		voltageRangeSelectBox->setSelectedItemIndex(processor->getVoltageRangeIndex(), false);
+	}
+
+	// Load number of active analog channels
+	int numAnalog = xml->getStringAttribute("numAnalog", "0").getIntValue();
+
+	if (numAnalog >= 0)
+	{
+		processor->setNumActiveAnalogChannels(numAnalog);
+		processor->updateAnalogChannels();
+	}
+
+	// Load number of active digital channels
+	int numDigital = xml->getStringAttribute("numDigital", "0").getIntValue();
+
+	if (numDigital >= 0)
+	{
+		processor->setNumActiveDigitalChannels(numDigital);
+		processor->updateDigitalChannels();
+	}
+
+	// Load digital read size
+	int digitalWriteSize = xml->getStringAttribute("digitalWriteSize", "0").getIntValue();
+
+	if (digitalWriteSize >= 0)
+	{
+		processor->setDigitalWriteSize(digitalWriteSize);
+	}
+
+	String digitalPortStates = xml->getStringAttribute("digitalPortStates", "000");
+
+	for (int i = 0; i < digitalPortStates.length(); i++)
+		processor->setPortState(i, digitalPortStates[i] == '1');
+
+	draw();
+
 }
