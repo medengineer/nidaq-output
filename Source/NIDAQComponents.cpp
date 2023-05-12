@@ -438,21 +438,6 @@ void NIDAQmx::startTasks()
 			if (portIdx == 0)
 			{
 
-				// Export the sample clock from the analog task to a PFI terminal
-				//TODO: Currently gives error:
-				// ***ERROR*** DAQmx Error: Destination terminal to be routed could not be found on the device.
-				// Make sure the terminal name is valid for the specified device. Refer to Measurement & Automation Explorer or your hardware documentation for valid terminal names.
-				// Property: DAQmx_Exported_SampClk_OutputTerm
-				// Destination Device: PXI1Slot4
-				// Destination Terminal: PXI1Slot4/ao/SampleClock
-				/*
-				DAQmxErrChk(NIDAQ::DAQmxExportSignal(
-					taskHandleAO, 
-					DAQmx_Val_SampleClock, 
-					STR2CHR(device->getName() + "/ao/SampleClock"))
-				);
-				*/
-
 				// Configure sample clock timing
 				if (sendsSynchronizedEvents())
 				{
@@ -536,22 +521,19 @@ void NIDAQmx::analogWrite(AudioBuffer<float>& buffer, int numSamples)
     NIDAQ::float64 timeout = 10.0;
     char errBuff[2048] = { '\0' };
 
-	const int numChannels = 1;
+	const int numChannels = 1; //TODO: Support more than one channel
 	
 	HeapBlock<NIDAQ::float64> outputData(numChannels*numSamples);
 
 	for (int sample = 0; sample < numChannels*numSamples; ++sample)
 	{
 		float inSample = buffer.getReadPointer(0)[sample];
-		outputData[sample] = static_cast<NIDAQ::float64>(inSample / 100.0f);
+		outputData[sample] = static_cast<NIDAQ::float64>(inSample / 100.0f); //TODO: Scale to 10V
 	}
 
 	analogOutBuffer->write(outputData, numChannels*numSamples);
 
-	if (!isThreadRunning())
-	{
-		startThread();
-	}
+	if (!isThreadRunning()) startThread();
 
 Error:
 
@@ -568,9 +550,7 @@ Error:
 
 void NIDAQmx::addEvent(int64 sampleNumber, uint8 ttlLine, bool state)
 {
-	lock.enter();
-	eventBuffer.add(new OutputEvent(sampleNumber, ttlLine, state));
-	lock.exit();
+	//TODO: Buffer events for synchronization
 }
 
 void NIDAQmx::run() 
@@ -581,25 +561,6 @@ void NIDAQmx::run()
 
 	// Create arrays to hold the analog and digital data
     HeapBlock<NIDAQ::float64> analogData(samplesPerChannel);
-    HeapBlock<NIDAQ::uInt8> digitalData(samplesPerChannel);
-
-	lock.enter();
-
-	if (sendsSynchronizedEvents() && eventBuffer.size() > 0)
-	{
-		OutputEvent* oe = eventBuffer.removeAndReturn(0);
-		LOGC("Processed event: ", oe->sampleNumber);
-		delete oe;
-	}
-
-	for (NIDAQ::uInt64 i = 0; i < samplesPerChannel; ++i)
-		digitalData[i] = 0x00; // Example: set all 8 lines of Port 0 to low
-
-	lock.exit();
-
-	eventCode = 0;
-
-	int loopCount = 0;
 
 	int totalWrittenSamples = 0;
 	float timeout = 10.0;
@@ -607,52 +568,20 @@ void NIDAQmx::run()
 	NIDAQ::int32 writtenAnalogSamples = 0;
 	NIDAQ::int32 writtenDigitalSamples = 0;
 
+	int numChannels = 1;
+
+	int loopCount = 0;
+
 	while (!threadShouldExit())
 	{
 
-		analogOutBuffer->read(analogData, 1*samplesPerChannel);
+		analogOutBuffer->read(analogData, numChannels*samplesPerChannel);
 
-		uint8 lastEventCode = eventCode;
-		OutputEvent* oe = nullptr;
-
-		lock.enter();
-
-		if (sendsSynchronizedEvents() && eventBuffer.size() > 0 && eventBuffer.getFirst()->sampleNumber < totalWrittenSamples + samplesPerChannel)
-		{
-			oe = eventBuffer.removeAndReturn(0);
-
-			uint8 mask = 1 << oe->ttlLine; //TODO: This will have to be larger to support more than 8 digital lines
-			eventCode = oe->state ? eventCode | mask : eventCode & ~mask;
-		}
-
-		lock.exit();
-
-		if (eventCode != lastEventCode)
-		{
-			for (NIDAQ::uInt64 i = 0; i < totalWrittenSamples + samplesPerChannel - oe->sampleNumber; ++i)
-				digitalData[i] = lastEventCode;
-			for (NIDAQ::uInt64 i = totalWrittenSamples + samplesPerChannel - oe->sampleNumber; i < samplesPerChannel; ++i)
-				digitalData[i] = eventCode;
-		}
-		else
-		{
-			for (NIDAQ::uInt64 i = 0; i < samplesPerChannel; ++i)
-				digitalData[i] = eventCode;
-		}
-
-		// Write the analog and digital data to the output buffers synchronously
 		DAQmxErrChk(NIDAQ::DAQmxWriteAnalogF64(taskHandleAO, samplesPerChannel, 0, timeout, DAQmx_Val_GroupByChannel, analogData, &writtenAnalogSamples, NULL));
-		if (sendsSynchronizedEvents()) DAQmxErrChk(NIDAQ::DAQmxWriteDigitalU8(taskHandlesDO[0], samplesPerChannel, 0, timeout, DAQmx_Val_GroupByChannel, digitalData, &writtenDigitalSamples, NULL));
-
-		loopCount++;
 
 		totalWrittenSamples += writtenAnalogSamples;
 
-		if (oe != nullptr)
-		{
-			LOGC("Processed event: ", oe->sampleNumber);
-			delete oe;
-		}
+		loopCount++;
 
 	}
 

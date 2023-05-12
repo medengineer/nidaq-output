@@ -350,7 +350,7 @@ private:
 
 	NIDAQ::uInt8 eventCode;
 
-	NIDAQ::uInt64 samplesPerChannel = 200;
+	NIDAQ::uInt64 samplesPerChannel = 100;
 
 	struct OutputEvent
 	{

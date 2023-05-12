@@ -159,10 +159,6 @@ void NIDAQOutput::handleTTLEvent(TTLEventPtr event)
     DataStream* stream = getDataStream(event->getStreamId());
     int64 firstSampleNumber = getFirstSampleNumberForBlock(event->getStreamId());
 
-    //TODO: Why does this always happen on the first loop?
-    if (event->getSampleNumber() - firstSampleNumber == 0)
-        return;
-
     if (mNIDAQ->sendsSynchronizedEvents())
 	    mNIDAQ->addEvent(event->getSampleNumber(), eventBit, event->getState());
     else
