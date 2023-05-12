@@ -211,7 +211,7 @@ void NIDAQmx::connect()
 
 		/* Get device analog output properties */
 		DeviceAOProperties aoProps = getDeviceAOProperties(STR2CHR(deviceName));
-		aoProps.show();
+		//aoProps.show();
 
 		/* Define available voltage ranges */
 		device->voltageRanges.clear();
@@ -405,8 +405,6 @@ void NIDAQmx::startTasks()
 	char ports[2048];
 	NIDAQ::DAQmxGetDevDOPorts(STR2CHR(device->getName()), &ports[0], sizeof(ports));
 
-	LOGD("Got ports: ", ports);
-
 	port_list.addTokens(&ports[0], ", ", "\"");
 
 	int portIdx = 0;
@@ -426,7 +424,7 @@ void NIDAQmx::startTasks()
 			else
 				DAQmxErrChk(NIDAQ::DAQmxCreateTask(STR2CHR("DOTask_PXI"+getSerialNumber()+"port"+std::to_string(portIdx)), &taskHandleDO));
 
-			LOGC("Creating channel for port: ", port);
+			LOGD("Creating channel for port: ", port);
 
 			// Create a channel for each digital output port
 			DAQmxErrChk(NIDAQ::DAQmxCreateDOChan(
@@ -586,7 +584,6 @@ void NIDAQmx::run()
     HeapBlock<NIDAQ::uInt8> digitalData(samplesPerChannel);
 
 	lock.enter();
-	LOGC("Event buffer size: ", eventBuffer.size());
 
 	if (sendsSynchronizedEvents() && eventBuffer.size() > 0)
 	{

@@ -32,8 +32,7 @@ NIDAQOutput::NIDAQOutput() : GenericProcessor("NIDAQ Output")
 
     dm->scanForDevices();
 
-    LOGC("Num devices found: ", dm->getNumAvailableDevices());
-    LOGC("Current device name: ", dm->getDeviceAtIndex(deviceIndex)->getName());
+    LOGD("Num devices found: ", dm->getNumAvailableDevices());
 
     openConnection();
 
@@ -119,7 +118,7 @@ void NIDAQOutput::updateSettings()
 
 bool NIDAQOutput::startAcquisition()
 {
-    LOGC("Starting Tasks...");
+    LOGD("Starting Tasks...");
     mNIDAQ->startTasks();
     return true;
 }
