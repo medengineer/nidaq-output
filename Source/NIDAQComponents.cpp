@@ -379,30 +379,34 @@ void NIDAQmx::startTasks()
     NIDAQ::int32 activeEdge = DAQmx_Val_Rising;
    	NIDAQ::int32 sampleMode = DAQmx_Val_ContSamps;
 
-    // Create an analog output task
-    if (device->isUSBDevice)
-		DAQmxErrChk(NIDAQ::DAQmxCreateTask("AOTask_USB", &taskHandleAO));
-	else
-		DAQmxErrChk(NIDAQ::DAQmxCreateTask("AOTask_PXI", &taskHandleAO));
+	if (getNumActiveAnalogOutputs() > 0)
+	{
+		// Create an analog output task
+		if (device->isUSBDevice)
+			DAQmxErrChk(NIDAQ::DAQmxCreateTask("AOTask_USB", &taskHandleAO));
+		else
+			DAQmxErrChk(NIDAQ::DAQmxCreateTask("AOTask_PXI", &taskHandleAO));
 
-    // Create an analog output channel //TODO: Handle more than one channel
-	DAQmxErrChk(NIDAQ::DAQmxCreateAOVoltageChan(
-		taskHandleAO,
-		STR2CHR(device->getName() + "/ao0"), 
-		"", -10.0, 10.0,
-		DAQmx_Val_Volts,
-		nullptr)
-	);
+		// Create an analog output channel //TODO: Handle more than one channel
+		DAQmxErrChk(NIDAQ::DAQmxCreateAOVoltageChan(
+			taskHandleAO,
+			STR2CHR(device->getName() + "/ao0"), 
+			"", -10.0, 10.0,
+			DAQmx_Val_Volts,
+			nullptr)
+		);
 
-    // Configure the sample clock timing for the analog task
-    DAQmxErrChk(NIDAQ::DAQmxCfgSampClkTiming(
-		taskHandleAO,
-		"", 
-		getSampleRate(),
-		activeEdge, 
-		sampleMode, 
-		samplesPerChannel)
-	);
+		// Configure the sample clock timing for the analog task
+		DAQmxErrChk(NIDAQ::DAQmxCfgSampClkTiming(
+			taskHandleAO,
+			"", 
+			getSampleRate(),
+			activeEdge, 
+			sampleMode, 
+			samplesPerChannel)
+		);
+
+	}
 
 	char ports[2048];
 	NIDAQ::DAQmxGetDevDOPorts(STR2CHR(device->getName()), &ports[0], sizeof(ports));
@@ -464,7 +468,7 @@ void NIDAQmx::startTasks()
 	}
 
 	// Start both analog and digital output tasks
-    DAQmxErrChk(NIDAQ::DAQmxStartTask(taskHandleAO));
+    if (getNumActiveAnalogOutputs()) DAQmxErrChk(NIDAQ::DAQmxStartTask(taskHandleAO));
 	for (auto& taskHandleDO : taskHandlesDO)
 		DAQmxErrChk(NIDAQ::DAQmxStartTask(taskHandlesDO[0]));
 

@@ -74,6 +74,8 @@ int NIDAQOutput::openConnection()
 
     mNIDAQ = new NIDAQmx(dm->getDeviceAtIndex(deviceIndex));
 
+    outputAvailable = mNIDAQ->device->numDOChannels > 0;
+
     sampleRateIndex = mNIDAQ->sampleRates.size() - 1;
     setSampleRate(sampleRateIndex);
 
@@ -133,6 +135,8 @@ void NIDAQOutput::process (AudioBuffer<float>& buffer)
 {
     /* Check for events */
     checkForEvents();
+
+    return; //TODO: Support analog data output
 
     /* Mirror analog output from first input channel on first stream */
     int streamIdx = 0;

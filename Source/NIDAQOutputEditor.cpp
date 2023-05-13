@@ -297,8 +297,6 @@ void NIDAQOutputEditor::draw()
 {
     processor = (NIDAQOutput*)getProcessor();
 
-    desiredWidth = 240;
-
 	int nAO;
 	int nDO;
 
@@ -393,6 +391,8 @@ void NIDAQOutputEditor::draw()
 	sampleRateSelectBox->setSelectedItemIndex(processor->getSampleRateIndex(), false);
 	sampleRateSelectBox->addListener(this);
 	addAndMakeVisible(sampleRateSelectBox);
+	if (processor->getNumActiveAnalogOutputs() == 0)
+		sampleRateSelectBox->setEnabled(false);
 
 	voltageRangeSelectBox = new ComboBox("VoltageRangeSelectBox");
 	voltageRangeSelectBox->setBounds(xOffset, 101, 85, 20);
@@ -405,6 +405,8 @@ void NIDAQOutputEditor::draw()
 	voltageRangeSelectBox->setSelectedItemIndex(processor->getVoltageRangeIndex(), false);
 	voltageRangeSelectBox->addListener(this);
 	addAndMakeVisible(voltageRangeSelectBox);
+	if (processor->getNumActiveAnalogOutputs() == 0)
+		voltageRangeSelectBox->setEnabled(false);
 
 	configureDeviceButton = new UtilityButton("...", Font("Small Text", 12, Font::plain));
 	configureDeviceButton->setBounds(xOffset + 60, 25, 24, 12);
@@ -456,8 +458,12 @@ void NIDAQOutputEditor::comboBoxChanged(ComboBox* comboBoxThatHasChanged)
 {
     if (comboBoxThatHasChanged == deviceSelectBox)
     {
+		LOGC("Combo box clicked: deviceSelectBox");
         int deviceIndex = deviceSelectBox->getSelectedItemIndex();
-        processor->setDevice(processor->getDevices()[deviceIndex]->getName());
+
+		String name = processor->getDevices()[deviceIndex]->getName();
+        processor->setDevice(name);
+		updateDevice(name);
         CoreServices::updateSignalChain(this);
     }
 }
@@ -544,6 +550,7 @@ PopupConfigurationWindow::PopupConfigurationWindow(NIDAQOutputEditor* editor_)
 	}
     analogChannelCountSelect->setBounds (115, 8, 60, 20);
     analogChannelCountSelect->addListener (this);
+	analogChannelCountSelect->setEnabled(MAX_NUM_ANALOG_OUTPUTS > 0);
     addAndMakeVisible (analogChannelCountSelect);
 
 	digitalLabel = new Label ("Digital", "Digital Outputs: ");

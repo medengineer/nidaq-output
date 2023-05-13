@@ -36,8 +36,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define NUM_SAMPLE_RATES 18
 
 #define PORT_SIZE 8 //number of bits in a port
-#define DEFAULT_NUM_ANALOG_OUTPUTS 1
-#define MAX_NUM_ANALOG_OUTPUTS 1
+#define DEFAULT_NUM_ANALOG_OUTPUTS 0
+#define MAX_NUM_ANALOG_OUTPUTS 0
 #define DEFAULT_NUM_DIGITAL_OUTPUTS 8
 
 #define ERR_BUFF_SIZE 2048
