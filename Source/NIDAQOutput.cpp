@@ -157,6 +157,12 @@ void NIDAQOutput::process (AudioBuffer<float>& buffer)
     }
 }
 
+bool NIDAQOutput::toggleDOChannel(int index)
+{
+	mNIDAQ->dout[index]->setEnabled(!mNIDAQ->dout[index]->isEnabled());
+	return mNIDAQ->dout[index]->isEnabled();
+}
+
 void NIDAQOutput::handleTTLEvent(TTLEventPtr event)
 {
     const int eventBit = event->getLine() + 1;

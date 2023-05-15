@@ -485,10 +485,8 @@ void NIDAQOutputEditor::buttonEvent(Button* button)
 	}
 	else if (doButtons.contains((DOButton*)button))
 	{
-        /*
-		((DOButton*)button)->setEnabled(processor->toggleDIChannel(((DOButton*)button)->getId()));
+		((DOButton*)button)->setEnabled(processor->toggleDOChannel(((DOButton*)button)->getId()));
 		repaint();
-        */
 	}
 	else if (sourceTypeButtons.contains((SourceTypeButton*)button))
 	{

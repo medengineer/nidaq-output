@@ -89,6 +89,8 @@ public:
     void updateAnalogChannels();
 	void updateDigitalChannels();
 
+    bool toggleDOChannel(int channelIndex);
+
 	/** Get/set digital write size */
 	int getDigitalWriteSize() { return mNIDAQ->getDigitalWriteSize(); };
 	void setDigitalWriteSize(int size) { mNIDAQ->setDigitalWriteSize(size); };
