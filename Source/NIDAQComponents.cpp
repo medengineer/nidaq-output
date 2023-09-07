@@ -609,6 +609,8 @@ Error:
 void NIDAQmx::digitalWrite(int channelIdx, bool state)
 {
 
+	lastChannelIdx = channelIdx;
+
 	NIDAQ::int32	error = 0;
 	char			errBuff[ERR_BUFF_SIZE] = { '\0' };
 	NIDAQ::int32 	write;
@@ -666,4 +668,9 @@ uint32 NIDAQmx::getActiveDigitalLines()
 			linesEnabled += pow(2, i);
 	}
 	return linesEnabled;
+}
+
+void NIDAQmx::timerCallback()
+{
+	digitalWrite(lastChannelIdx, 0);
 }

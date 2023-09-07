@@ -259,7 +259,7 @@ private:
 	int activeDeviceIndex;
 };
 
-class NIDAQmx : public Thread
+class NIDAQmx : public Thread, public Timer
 {
 public:
 
@@ -371,6 +371,10 @@ private:
 	std::unique_ptr<CircularBuffer<double>> analogOutBuffer;
 
 	bool sendSynchronizedEvents = false;
+
+	void timerCallback() override;
+
+	int lastChannelIdx = 0;
 
 };
 

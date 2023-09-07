@@ -171,6 +171,9 @@ void NIDAQOutput::handleTTLEvent(TTLEventPtr event)
 
     if (mNIDAQ->sendsSynchronizedEvents())
 	    mNIDAQ->addEvent(event->getSampleNumber(), eventBit, event->getState());
-    else
+    else if (event->getState())
+    {
         mNIDAQ->digitalWrite(eventBit, event->getState());
+        mNIDAQ->startTimer(1);
+    }
 }
