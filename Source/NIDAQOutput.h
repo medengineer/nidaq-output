@@ -28,6 +28,11 @@
 
 #include "NIDAQComponents.h"
 
+enum OutputMode {
+    MIRROR_INPUT,
+    CUSTOM_WAVEFORM
+};
+
 /**
 
     Provides an interface to control NIDAQ devices with output capabilities.
@@ -43,6 +48,10 @@ public:
 
     /** Destructor */
     ~NIDAQOutput();
+
+    void registerParameters() override;
+
+    void parameterValueChanged(Parameter* parameter) override;
 
     /** Get a list of available devices */
     Array<NIDAQDevice*> getDevices();
@@ -112,6 +121,10 @@ public:
     /** Get the available output voltage ranges for this device */
     Array<SettingsRange> getVoltageRanges();
 
+    /** Get the current output mode */
+    OutputMode getOutputMode() { return outputMode; };
+    void setOutputMode(OutputMode mode) { outputMode = mode; };
+
     /** Get the current voltage range index */
     int getVoltageRangeIndex() { return voltageRangeIndex; };
 
@@ -147,6 +160,8 @@ private:
     int deviceIndex = 0;
     int sampleRateIndex = 0;
     int voltageRangeIndex = 0;
+
+    OutputMode outputMode = MIRROR_INPUT;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (NIDAQOutput);
 };

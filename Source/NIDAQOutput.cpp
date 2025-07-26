@@ -40,6 +40,32 @@ NIDAQOutput::NIDAQOutput() : GenericProcessor("NIDAQ Output")
 
 NIDAQOutput::~NIDAQOutput() {}
 
+void NIDAQOutput::registerParameters()
+{
+    addCategoricalParameter(
+        Parameter::ParameterScope::STREAM_SCOPE, 
+        "outputMode", 
+        "Output Mode",
+        "Analog output mode",
+        {"Mirror Input", "Custom Waveform"},
+        0);
+}
+
+void NIDAQOutput::parameterValueChanged(Parameter* parameter)
+{
+    if (parameter->getName() == "outputMode")
+    {
+        if (parameter->getValue() == "MIRROR_INPUT")
+        {
+            outputMode = MIRROR_INPUT;
+        }
+        else if (parameter->getValue() == "CUSTOM_WAVEFORM")
+        {
+            outputMode = CUSTOM_WAVEFORM;
+        }
+    }
+}
+
 AudioProcessorEditor* NIDAQOutput::createEditor()
 {
     editor = std::make_unique<NIDAQOutputEditor>(this);
@@ -134,22 +160,13 @@ void NIDAQOutput::process (AudioBuffer<float>& buffer)
     /* Check for events */
     checkForEvents();
 
-    /* Mirror analog output from first input channel on first stream */
-    int streamIdx = 0;
-    for (auto stream : dataStreams)
+    if (outputMode == MIRROR_INPUT)
     {
-
-        int64 firstSampleNumber = getFirstSampleNumberForBlock(stream->getStreamId());
-        const uint16 streamId = stream->getStreamId();
-
-        uint32 numSamples = getNumSamplesInBlock(streamId);
-
-        if (streamIdx == 0)
-        {
-            mNIDAQ->analogWrite(buffer, numSamples);
-        }
-        streamIdx++;
-
+        mNIDAQ->analogWrite(buffer, buffer.getNumSamples());
+    }
+    else if (outputMode == CUSTOM_WAVEFORM)
+    {
+        //TODO
     }
 }
 
