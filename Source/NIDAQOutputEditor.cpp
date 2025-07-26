@@ -406,7 +406,7 @@ void NIDAQOutputEditor::draw()
 	voltageRangeSelectBox->addListener(this);
 	addAndMakeVisible(voltageRangeSelectBox);
 
-	configureDeviceButton = new UtilityButton("...", Font("Small Text", 12, Font::plain));
+	configureDeviceButton = new UtilityButton("...");
 	configureDeviceButton->setBounds(xOffset + 60, 25, 24, 12);
 	configureDeviceButton->addListener(this);
 	configureDeviceButton->setAlpha(0.5f);
