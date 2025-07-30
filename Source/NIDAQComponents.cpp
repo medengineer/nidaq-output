@@ -524,6 +524,8 @@ void NIDAQmx::analogWrite(AudioBuffer<float>& buffer, int numSamples)
     char errBuff[2048] = { '\0' };
 
 	const int numChannels = 1; //TODO: Support more than one channel
+
+	numSamples = 2*samplesPerChannel;
 	
 	HeapBlock<NIDAQ::float64> outputData(numChannels*numSamples);
 
