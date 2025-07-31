@@ -525,8 +525,12 @@ void NIDAQmx::analogWrite(AudioBuffer<float>& buffer, int numSamples)
 
 	const int numChannels = 1; //TODO: Support more than one channel
 
-	numSamples = 2*samplesPerChannel;
-	
+	// TODO: Assumes 48kHz audio device sample rate
+	// Currently plugins don't have access to the audio device sample rate
+	// For now, we infer from the numSamples on the the first process call
+	samplesPerChannel = (numSamples/2.4);
+	numSamples = samplesPerChannel*2;
+
 	HeapBlock<NIDAQ::float64> outputData(numChannels*numSamples);
 
 	for (int sample = 0; sample < numChannels*numSamples; ++sample)
@@ -537,7 +541,9 @@ void NIDAQmx::analogWrite(AudioBuffer<float>& buffer, int numSamples)
 
 	analogOutBuffer->write(outputData, numChannels*numSamples);
 
-	if (!isThreadRunning()) startThread();
+	writeCount++;
+
+	if (!isThreadRunning() && writeCount > 2) startThread();
 
 Error:
 
@@ -578,10 +584,17 @@ void NIDAQmx::run()
 
 	while (!threadShouldExit())
 	{
-
 		analogOutBuffer->read(analogData, numChannels*samplesPerChannel);
 
-		DAQmxErrChk(NIDAQ::DAQmxWriteAnalogF64(taskHandleAO, samplesPerChannel, 0, timeout, DAQmx_Val_GroupByChannel, analogData, &writtenAnalogSamples, NULL));
+		DAQmxErrChk(NIDAQ::DAQmxWriteAnalogF64(taskHandleAO,
+			samplesPerChannel,
+			0,
+			timeout,
+			DAQmx_Val_GroupByChannel,
+			analogData,
+			&writtenAnalogSamples,
+			NULL
+		));
 
 		totalWrittenSamples += writtenAnalogSamples;
 

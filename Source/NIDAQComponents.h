@@ -351,7 +351,7 @@ private:
 
 	NIDAQ::uInt8 eventCode;
 
-	NIDAQ::uInt64 samplesPerChannel = 200;
+	NIDAQ::uInt64 samplesPerChannel = 0;
 
 	struct OutputEvent
 	{
@@ -372,6 +372,7 @@ private:
 
 	bool sendSynchronizedEvents = false;
 
+	int writeCount = 0;
 };
 
 #endif  // __NIDAQCOMPONENTS_H__
