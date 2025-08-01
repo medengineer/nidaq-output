@@ -278,6 +278,8 @@ public:
 
 	DeviceAOProperties NIDAQmx::getDeviceAOProperties(const char* device);
 
+	void setAudioSampleRate(NIDAQ::float64 sampleRate) { audioSampleRate = sampleRate; };
+
 	/* Analog configuration */
 	NIDAQ::float64 getSampleRate() { return sampleRates[sampleRateIndex]; };
 	void setSampleRate(int index) { sampleRateIndex = index; };
@@ -373,6 +375,8 @@ private:
 	bool sendSynchronizedEvents = false;
 
 	int writeCount = 0;
+
+	NIDAQ::float64 audioSampleRate = 0;
 };
 
 #endif  // __NIDAQCOMPONENTS_H__

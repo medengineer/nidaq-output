@@ -74,7 +74,7 @@ public:
     Array<NIDAQ::float64> getSampleRates() { return mNIDAQ->sampleRates; };
 
     /** Get the current sample rate */
-    NIDAQ::float64 getSampleRate() { return mNIDAQ->getSampleRate(); };
+    NIDAQ::float64 getAudioSampleRate() { return mNIDAQ->getSampleRate(); };
     int getSampleRateIndex() { return sampleRateIndex; };
 
     /** Sets the sample rate of the data source. */
@@ -162,6 +162,8 @@ private:
     int voltageRangeIndex = 0;
 
     OutputMode outputMode = MIRROR_INPUT;
+
+    bool firstProcessCall = true;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (NIDAQOutput);
 };

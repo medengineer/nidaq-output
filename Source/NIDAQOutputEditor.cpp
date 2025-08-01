@@ -624,7 +624,7 @@ void PopupConfigurationWindow::buttonClicked(juce::Button* button)
 void NIDAQOutputEditor::saveCustomParametersToXml(XmlElement* xml)
 {
     xml->setAttribute("device", processor->getDeviceName());
-    xml->setAttribute("sampleRate", processor->getSampleRate());
+    xml->setAttribute("sampleRate", processor->getAudioSampleRate());
 	xml->setAttribute("voltageRange", processor->getVoltageRangeIndex());
 
 	xml->setAttribute("numAnalog", getNumActiveAnalogOutputs());

@@ -525,10 +525,7 @@ void NIDAQmx::analogWrite(AudioBuffer<float>& buffer, int numSamples)
 
 	const int numChannels = 1; //TODO: Support more than one channel
 
-	// TODO: Assumes 48kHz audio device sample rate
-	// Currently plugins don't have access to the audio device sample rate
-	// For now, we infer from the numSamples on the the first process call
-	samplesPerChannel = (numSamples/2.4);
+	samplesPerChannel = (numSamples/(audioSampleRate/10000.0/2.0));
 	numSamples = samplesPerChannel*2;
 
 	HeapBlock<NIDAQ::float64> outputData(numChannels*numSamples);

@@ -162,6 +162,12 @@ void NIDAQOutput::process (AudioBuffer<float>& buffer)
 
     if (outputMode == MIRROR_INPUT)
     {
+        if (firstProcessCall)
+        {
+            mNIDAQ->setAudioSampleRate(AudioProcessor::getSampleRate());
+            LOGC("Got audio sample rate: ", AudioProcessor::getSampleRate());
+            firstProcessCall = false;
+        }
         mNIDAQ->analogWrite(buffer, buffer.getNumSamples());
     }
     else if (outputMode == CUSTOM_WAVEFORM)
