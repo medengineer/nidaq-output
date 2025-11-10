@@ -198,19 +198,20 @@ bool NIDAQOutput::startAcquisition()
     if (!customWaveform->isValid())
     {
         String defaultProtocol = R"({
-            "name": "Default Square Wave",
+            "name": "Default Custom Waveform",
             "sequences": [{
                 "conditions": [{
                     "num_repeats": 1,
                     "stimuli": [{
-                        "source": "Probe A",
-                        "site": 10,
+                        "source": "Probe B",
+                        "site": 5,
                         "wavelength": 638,
                         "power": 250.0,
-                        "duration": 0.0,
-                        "pulse_shape": "Square",
-                        "pulse_width": 0.01,
-                        "pulse_frequency": 20.0
+                        "duration": 1.0,
+                        "pulse_shape": "Custom",
+                        "pulse_width": 0.10,
+                        "pulse_frequency": 0.0,
+                        "custom_waveform": [100, 200, 300, 400]
                     }]
                 }],
                 "min_iti": 0.0
@@ -219,7 +220,7 @@ bool NIDAQOutput::startAcquisition()
         
         if (customWaveform->parseProtocol(defaultProtocol, lastSampleRate))
         {
-            LOGC("Loaded default square wave: 2.5V, 20Hz, 10ms pulse width on AO0");
+            LOGC("Loaded default custom waveform: 4-step ramp [1V, 2V, 3V, 4V], 100ms pulse width, 1s duration on AO0");
             LOGC("Waveform sample rate: ", lastSampleRate);
             LOGC("NIDAQ device sample rate: ", mNIDAQ->getSampleRate());
         }
@@ -453,14 +454,40 @@ bool CustomWaveform::parseProtocol(const String& jsonString, double sRate)
                     }
                     else if (pulseShape == "Custom")
                     {
-                        const var& customWaveform = stimulus["custom_waveform"];
-                        if (customWaveform.isArray() && customWaveform.size() > 0)
+                        const var& customWaveformArray = stimulus["custom_waveform"];
+                        double pulseWidth = stimulus.getProperty("pulse_width", 0.01);
+                        double pulseFrequency = stimulus.getProperty("pulse_frequency", 0.0);
+                        
+                        if (customWaveformArray.isArray() && customWaveformArray.size() > 0)
                         {
+                            int numSteps = customWaveformArray.size();
+                            int pulseWidthSamples = static_cast<int>(pulseWidth * sampleRate);
+                            int samplesPerStep = pulseWidthSamples / numSteps;
+                            
+                            // If pulse_frequency > 0, repeat the custom waveform
+                            int pulsePeriodSamples = pulseFrequency > 0 ? static_cast<int>(sampleRate / pulseFrequency) : durationSamples;
+                            
+                            // Generate custom waveform for entire duration
                             for (int i = 0; i < durationSamples && (currentPosition + i) < waveformBuffer.getNumSamples(); i++)
                             {
-                                int waveformIdx = i % customWaveform.size();
-                                float value = customWaveform[waveformIdx];
-                                waveformBuffer.setSample(stimIdx, currentPosition + i, value);
+                                // Position within the current pulse period
+                                int posInPeriod = i % pulsePeriodSamples;
+                                
+                                // Only output during pulse_width, zeros after
+                                if (posInPeriod < pulseWidthSamples)
+                                {
+                                    // Which step within the custom waveform?
+                                    int stepIndex = posInPeriod / samplesPerStep;
+                                    if (stepIndex >= numSteps) stepIndex = numSteps - 1;
+                                    
+                                    float value = customWaveformArray[stepIndex];
+                                    waveformBuffer.setSample(stimIdx, currentPosition + i, value);
+                                }
+                                else
+                                {
+                                    // Silence after pulse_width
+                                    waveformBuffer.setSample(stimIdx, currentPosition + i, 0.0f);
+                                }
                             }
                         }
                     }
