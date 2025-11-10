@@ -36,16 +36,17 @@ enum OutputMode {
 class CustomWaveform
 {
 public:
-    CustomWaveform() : sampleRate(0), currentSample(0), numChannels(0) {}
+    CustomWaveform() : sampleRate(0), currentSample(0), numChannels(0), shouldLoop(false) {}
     
     bool parseProtocol(const String& jsonString, double sampleRate);
     void fillBuffer(AudioBuffer<float>& buffer, int numSamples);
     void reset() { currentSample = 0; }
     bool isValid() const { return waveformBuffer.getNumSamples() > 0; }
     bool regenerateWithNewSampleRate(double newSampleRate);
-    bool isFinished() const { return currentSample >= waveformBuffer.getNumSamples(); }
+    bool isFinished() const { return !shouldLoop && currentSample >= waveformBuffer.getNumSamples(); }
     int getTotalSamples() const { return waveformBuffer.getNumSamples(); }
     int getCurrentSample() const { return currentSample; }
+    bool isLooping() const { return shouldLoop; }
     
 private:
     AudioBuffer<float> waveformBuffer;
@@ -53,6 +54,7 @@ private:
     int currentSample;
     int numChannels;
     String lastProtocolJson;
+    bool shouldLoop;
 };
 
 /**

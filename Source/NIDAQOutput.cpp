@@ -87,6 +87,7 @@ void NIDAQOutput::handleBroadcastMessage(const String& msg, const int64 messageT
         LOGC("Output enabled, waveform reset to start");
         LOGC("Total waveform samples: ", customWaveform->getTotalSamples(), 
              " (duration: ", customWaveform->getTotalSamples() / AudioProcessor::getSampleRate(), " seconds)");
+        LOGC("Looping: ", customWaveform->isLooping() ? "enabled" : "disabled");
     }
 }
 
@@ -206,7 +207,7 @@ bool NIDAQOutput::startAcquisition()
                         "site": 10,
                         "wavelength": 638,
                         "power": 250.0,
-                        "duration": 1.0,
+                        "duration": 0.0,
                         "pulse_shape": "Square",
                         "pulse_width": 0.01,
                         "pulse_frequency": 20.0
@@ -311,6 +312,7 @@ bool CustomWaveform::parseProtocol(const String& jsonString, double sRate)
     sampleRate = sRate;
     currentSample = 0;
     lastProtocolJson = jsonString;
+    shouldLoop = false;
     
     var root;
     Result result = JSON::parse(jsonString, root);
@@ -358,6 +360,22 @@ bool CustomWaveform::parseProtocol(const String& jsonString, double sRate)
             {
                 const var& stimulus = stimuli[stimIdx];
                 double duration = stimulus.getProperty("duration", 0.0);
+                
+                // If duration is 0, calculate one period and set loop flag
+                if (duration == 0.0)
+                {
+                    shouldLoop = true;
+                    double pulseFrequency = stimulus.getProperty("pulse_frequency", 1.0);
+                    if (pulseFrequency > 0)
+                    {
+                        duration = 1.0 / pulseFrequency; // One period
+                    }
+                    else
+                    {
+                        duration = 1.0; // Default to 1 second
+                    }
+                }
+                
                 totalSamples += static_cast<int>(duration * sampleRate) * numRepeats;
                 maxChannels = jmax(maxChannels, stimIdx + 1);
             }
@@ -400,6 +418,21 @@ bool CustomWaveform::parseProtocol(const String& jsonString, double sRate)
                     const var& stimulus = stimuli[stimIdx];
                     String pulseShape = stimulus.getProperty("pulse_shape", "Square").toString();
                     double duration = stimulus.getProperty("duration", 0.0);
+                    
+                    // If duration is 0, use one period
+                    if (duration == 0.0)
+                    {
+                        double pulseFrequency = stimulus.getProperty("pulse_frequency", 1.0);
+                        if (pulseFrequency > 0)
+                        {
+                            duration = 1.0 / pulseFrequency;
+                        }
+                        else
+                        {
+                            duration = 1.0;
+                        }
+                    }
+                    
                     int durationSamples = static_cast<int>(duration * sampleRate);
                     
                     if (pulseShape == "Square")
@@ -478,6 +511,11 @@ void CustomWaveform::fillBuffer(AudioBuffer<float>& buffer, int numSamples)
         }
         
         currentSample++;
-        // Don't loop - stop at the end
+        
+        // If looping is enabled and we reached the end, wrap around
+        if (shouldLoop && currentSample >= waveformBuffer.getNumSamples())
+        {
+            currentSample = 0;
+        }
     }
 }
