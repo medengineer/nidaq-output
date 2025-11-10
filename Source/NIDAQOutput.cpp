@@ -76,6 +76,17 @@ String NIDAQOutput::handleConfigMessage(const String& message)
     return message;
 }
 
+void NIDAQOutput::handleBroadcastMessage(const String& msg, const int64 messageTimeMilliseconds)
+{
+    LOGC("Got broadcast message: ", msg, " at time: ", messageTimeMilliseconds);
+    // Assume message is a flag to trigger the custom_waveform to start
+    if (msg == "enable_output")
+    {
+        outputEnabled = true;
+        LOGC("Output enabled");
+    }
+}
+
 void NIDAQOutput::parameterValueChanged(Parameter* parameter)
 {
     if (parameter->getName() == "outputMode")
@@ -170,6 +181,8 @@ void NIDAQOutput::updateSettings()
 bool NIDAQOutput::startAcquisition()
 {
     LOGD("Starting Tasks...");
+
+    outputEnabled = false;
     
     lastSampleRate = AudioProcessor::getSampleRate();
     mNIDAQ->setAudioSampleRate(lastSampleRate);
@@ -241,6 +254,8 @@ void NIDAQOutput::process (AudioBuffer<float>& buffer)
             customWaveform->regenerateWithNewSampleRate(currentSampleRate);
         }
     }
+
+    if (!outputEnabled) return;
 
     if (outputMode == MIRROR_INPUT)
     {

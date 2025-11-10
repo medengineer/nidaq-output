@@ -74,6 +74,8 @@ public:
 
     String handleConfigMessage(const String& message) override;
 
+    void handleBroadcastMessage(const String& msg, const int64 messageTimeMilliseconds) override;
+
     /** Get a list of available devices */
     Array<NIDAQDevice*> getDevices();
     int getDeviceIndex() { return deviceIndex; };
@@ -187,6 +189,8 @@ private:
     ScopedPointer<CustomWaveform> customWaveform;
     
     double lastSampleRate = 0;
+
+    bool outputEnabled = false;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (NIDAQOutput);
 };
