@@ -43,6 +43,9 @@ public:
     void reset() { currentSample = 0; }
     bool isValid() const { return waveformBuffer.getNumSamples() > 0; }
     bool regenerateWithNewSampleRate(double newSampleRate);
+    bool isFinished() const { return currentSample >= waveformBuffer.getNumSamples(); }
+    int getTotalSamples() const { return waveformBuffer.getNumSamples(); }
+    int getCurrentSample() const { return currentSample; }
     
 private:
     AudioBuffer<float> waveformBuffer;

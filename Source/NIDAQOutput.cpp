@@ -82,8 +82,11 @@ void NIDAQOutput::handleBroadcastMessage(const String& msg, const int64 messageT
     // Assume message is a flag to trigger the custom_waveform to start
     if (msg == "enable_output")
     {
+        customWaveform->reset();
         outputEnabled = true;
-        LOGC("Output enabled");
+        LOGC("Output enabled, waveform reset to start");
+        LOGC("Total waveform samples: ", customWaveform->getTotalSamples(), 
+             " (duration: ", customWaveform->getTotalSamples() / AudioProcessor::getSampleRate(), " seconds)");
     }
 }
 
@@ -265,6 +268,15 @@ void NIDAQOutput::process (AudioBuffer<float>& buffer)
     {
         if (customWaveform->isValid())
         {
+            // Check if waveform is finished
+            if (customWaveform->isFinished())
+            {
+                outputEnabled = false;
+                LOGC("Waveform finished after ", customWaveform->getCurrentSample(), " samples");
+                LOGC("Output disabled");
+                return;
+            }
+            
             AudioBuffer<float> outputBuffer(buffer.getNumChannels(), buffer.getNumSamples());
             customWaveform->fillBuffer(outputBuffer, buffer.getNumSamples());
             mNIDAQ->analogWrite(outputBuffer, buffer.getNumSamples());
@@ -466,9 +478,6 @@ void CustomWaveform::fillBuffer(AudioBuffer<float>& buffer, int numSamples)
         }
         
         currentSample++;
-        if (currentSample >= waveformBuffer.getNumSamples())
-        {
-            currentSample = 0; // Loop the waveform
-        }
+        // Don't loop - stop at the end
     }
 }
