@@ -1,0 +1,51 @@
+name: My Protocol
+sequences:
+  - baseline_interval: 0.0
+  conditions:
+    - num_repeats: 10
+    stimuli:
+      - custom_waveform: []
+      custom_waveform_id: -1
+      duration: 1.0
+      power: 100.0
+      pulse_frequency: 20.0
+      pulse_shape: Square
+      pulse_width: 0.01
+      ramp_off: 0.0
+      ramp_on: 0.0
+      site: -1
+      source: External laser
+      wavelength: 473
+    - num_repeats: 5
+    stimuli:
+      - custom_waveform: []
+      custom_waveform_id: -1
+      duration: 1.0
+      power: 50.0
+      pulse_frequency: 20.0
+      pulse_shape: Square
+      pulse_width: 0.01
+      ramp_off: 0.0
+      ramp_on: 0.0
+      site: 10
+      source: Probe A
+      wavelength: 638
+      - custom_waveform:
+        - 1.0
+        - 2.0
+        - 3.0
+        - 4.0
+      custom_waveform_id: -1
+      duration: 1.0
+      power: 50.0
+      pulse_frequency: 0.0
+      pulse_shape: Custom
+      pulse_width: 0.1
+      ramp_off: 0.0
+      ramp_on: 0.0
+      site: 5
+      source: Probe B
+      wavelength: 638
+  max_iti: 1.0
+  min_iti: 1.0
+  randomize: true

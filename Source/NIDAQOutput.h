@@ -33,6 +33,25 @@ enum OutputMode {
     CUSTOM_WAVEFORM
 };
 
+class CustomWaveform
+{
+public:
+    CustomWaveform() : sampleRate(0), currentSample(0), numChannels(0) {}
+    
+    bool parseProtocol(const String& jsonString, double sampleRate);
+    void fillBuffer(AudioBuffer<float>& buffer, int numSamples);
+    void reset() { currentSample = 0; }
+    bool isValid() const { return waveformBuffer.getNumSamples() > 0; }
+    bool regenerateWithNewSampleRate(double newSampleRate);
+    
+private:
+    AudioBuffer<float> waveformBuffer;
+    double sampleRate;
+    int currentSample;
+    int numChannels;
+    String lastProtocolJson;
+};
+
 /**
 
     Provides an interface to control NIDAQ devices with output capabilities.
@@ -52,6 +71,8 @@ public:
     void registerParameters() override;
 
     void parameterValueChanged(Parameter* parameter) override;
+
+    String handleConfigMessage(const String& message) override;
 
     /** Get a list of available devices */
     Array<NIDAQDevice*> getDevices();
@@ -161,9 +182,11 @@ private:
     int sampleRateIndex = 0;
     int voltageRangeIndex = 0;
 
-    OutputMode outputMode = MIRROR_INPUT;
+    OutputMode outputMode = CUSTOM_WAVEFORM;
 
-    bool firstProcessCall = true;
+    ScopedPointer<CustomWaveform> customWaveform;
+    
+    double lastSampleRate = 0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (NIDAQOutput);
 };
