@@ -197,21 +197,24 @@ bool NIDAQOutput::startAcquisition()
     // Load default waveform if none configured
     if (!customWaveform->isValid())
     {
+        /*
+        For Custom waveforms:
+        - pulse_width:          Stretch array across this time (e.g., 0.1 = 100ms)
+        - waveform_sample_rate: Each sample = 1/rate seconds (e.g., 40Hz = 25ms per sample)
+        - duration:             Number of cycles to repeat the waveform
+        
+        Default: 4-step ramp at 40Hz, 3 cycles = 300ms total
+        */
         String defaultProtocol = R"({
             "name": "Default Custom Waveform",
             "sequences": [{
                 "conditions": [{
                     "num_repeats": 1,
                     "stimuli": [{
-                        "source": "Probe B",
-                        "site": 5,
-                        "wavelength": 638,
-                        "power": 250.0,
-                        "duration": 1.0,
                         "pulse_shape": "Custom",
-                        "pulse_width": 0.10,
-                        "pulse_frequency": 0.0,
-                        "custom_waveform": [100, 200, 300, 400]
+                        "waveform_sample_rate": 40.0,
+                        "custom_waveform": [100.0, 200.0, 300.0, 400.0],
+                        "duration": 3.0
                     }]
                 }],
                 "min_iti": 0.0
@@ -220,9 +223,8 @@ bool NIDAQOutput::startAcquisition()
         
         if (customWaveform->parseProtocol(defaultProtocol, lastSampleRate))
         {
-            LOGC("Loaded default custom waveform: 4-step ramp [1V, 2V, 3V, 4V], 100ms pulse width, 1s duration on AO0");
-            LOGC("Waveform sample rate: ", lastSampleRate);
-            LOGC("NIDAQ device sample rate: ", mNIDAQ->getSampleRate());
+            LOGC("Loaded default custom waveform: 4-step ramp, 3 cycles (300ms total)");
+            LOGC("Output sample rate: ", lastSampleRate);
         }
         else
         {
@@ -273,9 +275,14 @@ void NIDAQOutput::process (AudioBuffer<float>& buffer)
             // Check if waveform is finished
             if (customWaveform->isFinished())
             {
+                // Write zeros to reset output before disabling
+                AudioBuffer<float> zeroBuffer(buffer.getNumChannels(), buffer.getNumSamples());
+                zeroBuffer.clear();
+                mNIDAQ->analogWrite(zeroBuffer, buffer.getNumSamples());
+                
                 outputEnabled = false;
                 LOGC("Waveform finished after ", customWaveform->getCurrentSample(), " samples");
-                LOGC("Output disabled");
+                LOGC("Output disabled and reset to 0");
                 return;
             }
             
@@ -360,24 +367,48 @@ bool CustomWaveform::parseProtocol(const String& jsonString, double sRate)
             for (int stimIdx = 0; stimIdx < stimuli.size(); stimIdx++)
             {
                 const var& stimulus = stimuli[stimIdx];
+                String pulseShape = stimulus.getProperty("pulse_shape", "Square").toString();
                 double duration = stimulus.getProperty("duration", 0.0);
+                double durationSeconds = 0.0;
                 
-                // If duration is 0, calculate one period and set loop flag
-                if (duration == 0.0)
+                if (pulseShape == "Custom")
                 {
-                    shouldLoop = true;
-                    double pulseFrequency = stimulus.getProperty("pulse_frequency", 1.0);
-                    if (pulseFrequency > 0)
+                    // For Custom: duration = number of cycles
+                    const var& customWaveformArray = stimulus["custom_waveform"];
+                    double pulseWidth = stimulus.getProperty("pulse_width", 0.0);
+                    double waveformSampleRate = stimulus.getProperty("waveform_sample_rate", 0.0);
+                    
+                    double waveformLengthSeconds = 0.0;
+                    if (customWaveformArray.isArray() && customWaveformArray.size() > 0)
                     {
-                        duration = 1.0 / pulseFrequency; // One period
+                        int numSteps = customWaveformArray.size();
+                        if (pulseWidth > 0)
+                            waveformLengthSeconds = pulseWidth;
+                        else if (waveformSampleRate > 0)
+                            waveformLengthSeconds = numSteps / waveformSampleRate;
+                        else
+                            waveformLengthSeconds = numSteps / sampleRate;
                     }
-                    else
+                    
+                    int numCycles = (duration > 0) ? static_cast<int>(duration) : 1;
+                    durationSeconds = waveformLengthSeconds * numCycles;
+                }
+                else
+                {
+                    // For Square/other: duration = time in seconds
+                    if (duration == 0.0)
                     {
-                        duration = 1.0; // Default to 1 second
+                        shouldLoop = true;
+                        double pulseFrequency = stimulus.getProperty("pulse_frequency", 1.0);
+                        if (pulseFrequency > 0)
+                            duration = 1.0 / pulseFrequency;
+                        else
+                            duration = 1.0;
                     }
+                    durationSeconds = duration;
                 }
                 
-                totalSamples += static_cast<int>(duration * sampleRate) * numRepeats;
+                totalSamples += static_cast<int>(durationSeconds * sampleRate) * numRepeats;
                 maxChannels = jmax(maxChannels, stimIdx + 1);
             }
         }
@@ -419,25 +450,21 @@ bool CustomWaveform::parseProtocol(const String& jsonString, double sRate)
                     const var& stimulus = stimuli[stimIdx];
                     String pulseShape = stimulus.getProperty("pulse_shape", "Square").toString();
                     double duration = stimulus.getProperty("duration", 0.0);
-                    
-                    // If duration is 0, use one period
-                    if (duration == 0.0)
-                    {
-                        double pulseFrequency = stimulus.getProperty("pulse_frequency", 1.0);
-                        if (pulseFrequency > 0)
-                        {
-                            duration = 1.0 / pulseFrequency;
-                        }
-                        else
-                        {
-                            duration = 1.0;
-                        }
-                    }
-                    
-                    int durationSamples = static_cast<int>(duration * sampleRate);
+                    int durationSamples;
                     
                     if (pulseShape == "Square")
                     {
+                        // For Square: duration = time in seconds
+                        if (duration == 0.0)
+                        {
+                            double pulseFrequency = stimulus.getProperty("pulse_frequency", 1.0);
+                            if (pulseFrequency > 0)
+                                duration = 1.0 / pulseFrequency;
+                            else
+                                duration = 1.0;
+                        }
+                        durationSamples = static_cast<int>(duration * sampleRate);
+                        
                         double pulseWidth = stimulus.getProperty("pulse_width", 0.01);
                         double pulseFrequency = stimulus.getProperty("pulse_frequency", 0.0);
                         double power = stimulus.getProperty("power", 0.0);
@@ -455,28 +482,47 @@ bool CustomWaveform::parseProtocol(const String& jsonString, double sRate)
                     else if (pulseShape == "Custom")
                     {
                         const var& customWaveformArray = stimulus["custom_waveform"];
-                        double pulseWidth = stimulus.getProperty("pulse_width", 0.01);
-                        double pulseFrequency = stimulus.getProperty("pulse_frequency", 0.0);
+                        double pulseWidth = stimulus.getProperty("pulse_width", 0.0);
+                        double waveformSampleRate = stimulus.getProperty("waveform_sample_rate", 0.0);
                         
                         if (customWaveformArray.isArray() && customWaveformArray.size() > 0)
                         {
                             int numSteps = customWaveformArray.size();
-                            int pulseWidthSamples = static_cast<int>(pulseWidth * sampleRate);
-                            int samplesPerStep = pulseWidthSamples / numSteps;
+                            int pulseWidthSamples;
+                            int samplesPerStep;
                             
-                            // If pulse_frequency > 0, repeat the custom waveform
-                            int pulsePeriodSamples = pulseFrequency > 0 ? static_cast<int>(sampleRate / pulseFrequency) : durationSamples;
+                            if (pulseWidth > 0)
+                            {
+                                // pulse_width mode: stretch waveform across pulse_width seconds
+                                pulseWidthSamples = static_cast<int>(pulseWidth * sampleRate);
+                                samplesPerStep = pulseWidthSamples / numSteps;
+                            }
+                            else if (waveformSampleRate > 0)
+                            {
+                                // waveform_sample_rate mode: each sample = 1/waveformSampleRate seconds
+                                samplesPerStep = static_cast<int>(sampleRate / waveformSampleRate);
+                                pulseWidthSamples = samplesPerStep * numSteps;
+                            }
+                            else
+                            {
+                                // Default: 1:1 mapping (1 sample per output sample)
+                                samplesPerStep = 1;
+                                pulseWidthSamples = numSteps;
+                            }
                             
-                            // Generate custom waveform for entire duration
+                            // For Custom: duration = number of cycles
+                            int numCycles = (duration > 0) ? static_cast<int>(duration) : 1;
+                            durationSamples = pulseWidthSamples * numCycles;
+                            
+                            // Repeat waveform back-to-back for each cycle
+                            int pulsePeriodSamples = pulseWidthSamples;
+                            
                             for (int i = 0; i < durationSamples && (currentPosition + i) < waveformBuffer.getNumSamples(); i++)
                             {
-                                // Position within the current pulse period
                                 int posInPeriod = i % pulsePeriodSamples;
                                 
-                                // Only output during pulse_width, zeros after
                                 if (posInPeriod < pulseWidthSamples)
                                 {
-                                    // Which step within the custom waveform?
                                     int stepIndex = posInPeriod / samplesPerStep;
                                     if (stepIndex >= numSteps) stepIndex = numSteps - 1;
                                     
@@ -485,7 +531,6 @@ bool CustomWaveform::parseProtocol(const String& jsonString, double sRate)
                                 }
                                 else
                                 {
-                                    // Silence after pulse_width
                                     waveformBuffer.setSample(stimIdx, currentPosition + i, 0.0f);
                                 }
                             }
