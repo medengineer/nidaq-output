@@ -23,6 +23,6 @@
       "maxVoltage": 5.0
     },
     "custom": {
-      "string": "0,0,0"
+      "string": [1,2,3,4]
     }
   }

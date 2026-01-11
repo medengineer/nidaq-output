@@ -533,7 +533,7 @@ void NIDAQmx::analogWrite(AudioBuffer<float>& buffer, int numSamples)
 	for (int sample = 0; sample < numChannels*numSamples; ++sample)
 	{
 		float inSample = buffer.getReadPointer(0)[sample];
-		outputData[sample] = static_cast<NIDAQ::float64>(inSample / 100.0f); //TODO: Scale to 10V
+		outputData[sample] = static_cast<NIDAQ::float64>(inSample);
 	}
 
 	analogOutBuffer->write(outputData, numChannels*numSamples);

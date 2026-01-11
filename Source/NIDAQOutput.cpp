@@ -237,7 +237,7 @@ bool NIDAQOutput::startAcquisition()
 
 bool NIDAQOutput::stopAcquisition()
 {
-    mNIDAQ->stopThread(5000);
+    //mNIDAQ->stopThread(5000);
     return true;
 }
 
@@ -326,20 +326,19 @@ bool CustomWaveform::parseProtocol(const String& jsonString, double sRate)
     Result result = JSON::parse(jsonString, root);
     
     if (!result.wasOk())
-    {
         return false;
-    }
     
+    // Detect format: wave_player format has "patternType" field
+    if (root.hasProperty("patternType"))
+        return parseWavePlayer(root);
+    
+    // Original protocol format with sequences
     if (!root.hasProperty("sequences") || !root["sequences"].isArray())
-    {
         return false;
-    }
     
     const var& sequences = root["sequences"];
     if (sequences.size() == 0)
-    {
         return false;
-    }
     
     // Calculate total buffer size needed
     int totalSamples = 0;
@@ -547,6 +546,118 @@ bool CustomWaveform::parseProtocol(const String& jsonString, double sRate)
     }
     
     return true;
+}
+
+bool CustomWaveform::parseWavePlayer(const var& root)
+{
+    int patternType = root.getProperty("patternType", 0);
+    double sourceSampleRate = root.getProperty("sampleRate", 30000.0);
+    double maxVoltage = root.getProperty("maxVoltage", 5.0);
+    
+    numChannels = 1;
+    int totalSamples = 0;
+    
+    // patternType: 0=pulse, 1=sine, 2=custom
+    if (patternType == 0 && root.hasProperty("pulse"))
+    {
+        const var& pulse = root["pulse"];
+        int onDuration = pulse.getProperty("onDuration", 100);
+        int offDuration = pulse.getProperty("offDuration", 100);
+        int delayDuration = pulse.getProperty("delayDuration", 0);
+        int repeatNumber = pulse.getProperty("repeatNumber", 1);
+        int rampOnDuration = pulse.getProperty("rampOnDuration", 0);
+        int rampOffDuration = pulse.getProperty("rampOffDuration", 0);
+        float pulseVoltage = pulse.getProperty("maxVoltage", maxVoltage);
+        
+        // Convert from source sample rate to output sample rate
+        double ratio = sampleRate / sourceSampleRate;
+        int delayOut = static_cast<int>(delayDuration * ratio);
+        int onOut = static_cast<int>(onDuration * ratio);
+        int offOut = static_cast<int>(offDuration * ratio);
+        int rampOnOut = static_cast<int>(rampOnDuration * ratio);
+        int rampOffOut = static_cast<int>(rampOffDuration * ratio);
+        
+        totalSamples = delayOut + repeatNumber * (onOut + offOut);
+        waveformBuffer.setSize(numChannels, totalSamples);
+        waveformBuffer.clear();
+        
+        int pos = 0;
+        
+        // Delay
+        for (int i = 0; i < delayOut; i++)
+            waveformBuffer.setSample(0, pos++, 0.0f);
+        
+        // Repeats
+        for (int rep = 0; rep < repeatNumber; rep++)
+        {
+            // On phase with ramps
+            for (int i = 0; i < onOut && pos < totalSamples; i++)
+            {
+                float value = pulseVoltage;
+                if (rampOnOut > 0 && i < rampOnOut)
+                    value = pulseVoltage * (float(i) / rampOnOut);
+                if (rampOffOut > 0 && i >= (onOut - rampOffOut))
+                    value = pulseVoltage * (float(onOut - i) / rampOffOut);
+                waveformBuffer.setSample(0, pos++, value);
+            }
+            // Off phase
+            for (int i = 0; i < offOut && pos < totalSamples; i++)
+                waveformBuffer.setSample(0, pos++, 0.0f);
+        }
+    }
+    else if (patternType == 1 && root.hasProperty("sine"))
+    {
+        const var& sine = root["sine"];
+        double frequency = sine.getProperty("frequency", 5.0);
+        int cycles = sine.getProperty("cycles", 1);
+        int delayDuration = sine.getProperty("delayDuration", 0);
+        float sineVoltage = sine.getProperty("maxVoltage", maxVoltage);
+        
+        double ratio = sampleRate / sourceSampleRate;
+        int delayOut = static_cast<int>(delayDuration * ratio);
+        int samplesPerCycle = static_cast<int>(sampleRate / frequency);
+        
+        totalSamples = delayOut + cycles * samplesPerCycle;
+        waveformBuffer.setSize(numChannels, totalSamples);
+        waveformBuffer.clear();
+        
+        int pos = 0;
+        
+        // Delay
+        for (int i = 0; i < delayOut; i++)
+            waveformBuffer.setSample(0, pos++, 0.0f);
+        
+        // Sine cycles
+        for (int i = 0; i < cycles * samplesPerCycle && pos < totalSamples; i++)
+        {
+            float value = sineVoltage * std::sin(2.0 * MathConstants<double>::pi * frequency * i / sampleRate);
+            waveformBuffer.setSample(0, pos++, value);
+        }
+    }
+    else if (patternType == 2 && root.hasProperty("custom"))
+    {
+        const var& custom = root["custom"];
+        String customString = custom.getProperty("string", "0").toString();
+        
+        StringArray tokens;
+        tokens.addTokens(customString, ",", "");
+        
+        if (tokens.size() == 0)
+            return false;
+        
+        totalSamples = tokens.size();
+        waveformBuffer.setSize(numChannels, totalSamples);
+        waveformBuffer.clear();
+        
+        for (int i = 0; i < tokens.size(); i++)
+            waveformBuffer.setSample(0, i, tokens[i].getFloatValue());
+    }
+    else
+    {
+        return false;
+    }
+    
+    return totalSamples > 0;
 }
 
 bool CustomWaveform::regenerateWithNewSampleRate(double newSampleRate)

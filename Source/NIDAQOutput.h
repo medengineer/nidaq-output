@@ -49,6 +49,7 @@ public:
     bool isLooping() const { return shouldLoop; }
     
 private:
+    bool parseWavePlayer(const var& root);
     AudioBuffer<float> waveformBuffer;
     double sampleRate;
     int currentSample;
