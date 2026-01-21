@@ -47,6 +47,7 @@ public:
     int getTotalSamples() const { return waveformBuffer.getNumSamples(); }
     int getCurrentSample() const { return currentSample; }
     bool isLooping() const { return shouldLoop; }
+    int getNumChannels() const { return numChannels; }
     
 private:
     bool parseWavePlayer(const var& root);
