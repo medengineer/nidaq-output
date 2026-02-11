@@ -57,6 +57,11 @@ String NIDAQOutput::handleConfigMessage(const String& message)
 {
     LOGC("Got config message: ", message);
 
+    bool playImmediately = false;
+    var root;
+    if (JSON::parse(message, root).wasOk())
+        playImmediately = static_cast<bool>(root.getProperty("playImmediately", var(false)));
+
     double sampleRate = AudioProcessor::getSampleRate();
     if (sampleRate == 0)
     {
@@ -82,6 +87,15 @@ String NIDAQOutput::handleConfigMessage(const String& message)
             mNIDAQ->startTasks(); // Reconfigure DAQmx task with new channel count
             
             // Thread will restart automatically when analogWrite is called
+        }
+        if (playImmediately)
+        {
+            customWaveform->reset();
+            outputEnabled = true;
+            LOGC("Output enabled immediately (playImmediately=true)");
+            LOGC("Total waveform samples: ", customWaveform->getTotalSamples(),
+                 " (duration: ", customWaveform->getTotalSamples() / AudioProcessor::getSampleRate(), " seconds)");
+            LOGC("Looping: ", customWaveform->isLooping() ? "enabled" : "disabled");
         }
     }
     else
