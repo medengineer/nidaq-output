@@ -40,7 +40,14 @@ NIDAQOutput::NIDAQOutput() : GenericProcessor("NIDAQ Output")
 
 }
 
-NIDAQOutput::~NIDAQOutput() {}
+NIDAQOutput::~NIDAQOutput()
+{
+	if (mNIDAQ != nullptr)
+	{
+		mNIDAQ->requestShutdown();
+		mNIDAQ->stopThread(2000);
+	}
+}
 
 void NIDAQOutput::registerParameters()
 {

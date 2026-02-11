@@ -312,6 +312,7 @@ public:
 
 	void startTasks();
 	void clearTasks();
+	void requestShutdown();
 
 	void analogWrite(AudioBuffer<float>& buffer, int numSamples);
 	void digitalWrite(int channelIdx, bool state);

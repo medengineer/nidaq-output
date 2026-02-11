@@ -19,11 +19,23 @@ public:
 
     void read(T* data, size_t numSamples) {
         std::unique_lock<std::mutex> lock(mutex);
-        cv.wait(lock, [this, numSamples] { return (write_index + size - read_index) % size >= numSamples; });
-        for (int i = 0; i < numSamples; i++) {
+        cv.wait(lock, [this, numSamples] {
+            return shutdownRequested || (write_index + size - read_index) % size >= numSamples;
+        });
+        if (shutdownRequested) {
+            for (size_t i = 0; i < numSamples; i++) data[i] = T(0);
+            return;
+        }
+        for (size_t i = 0; i < numSamples; i++) {
             data[i] = buffer[read_index];
             read_index = (read_index + 1) % size;
         }
+    }
+
+    void requestShutdown() {
+        std::lock_guard<std::mutex> lock(mutex);
+        shutdownRequested = true;
+        cv.notify_all();
     }
 
     size_t get_write_index() {
@@ -41,4 +53,5 @@ private:
     size_t read_index, write_index, size;
     std::mutex mutex;
     std::condition_variable cv;
+    std::atomic<bool> shutdownRequested{false};
 };

@@ -481,6 +481,12 @@ Error:
 
 }
 
+void NIDAQmx::requestShutdown()
+{
+	if (analogOutBuffer)
+		analogOutBuffer->requestShutdown();
+}
+
 void NIDAQmx::clearTasks()
 {
 
