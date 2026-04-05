@@ -653,6 +653,12 @@ bool CustomWaveform::parseWavePlayer(const var& root)
         numChannels = jmax(numChannels, channel + 1);
         totalSamples = jmax(totalSamples, samples);
     }
+
+    // Keep channel count stable across successive configs (e.g. pulse on ch0 vs sine on ch1)
+    // so handleConfigMessage does not call setNumActiveAnalogOutputs + stopThread every trial.
+    const int minChannels = (int) root.getProperty("minAnalogChannels", 0);
+    if (minChannels > 0)
+        numChannels = jmax(numChannels, minChannels);
     
     if (totalSamples == 0)
         return false;
