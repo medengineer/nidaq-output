@@ -302,7 +302,7 @@ void NIDAQOutputEditor::draw()
 	int nAO;
 	int nDO;
 
-	if (processor->getDeviceName() == "Simulated Device")
+	if (processor->getDeviceName() == "Simulated")
 	{
 		nAO = 2;
 		nDO = 8;

@@ -22,6 +22,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include <chrono>
+#include <cmath>
 #include <math.h>
 
 #include "NIDAQComponents.h"
@@ -158,20 +159,20 @@ NIDAQmx::NIDAQmx(NIDAQDevice* device_)
 
 DeviceAOProperties NIDAQmx::getDeviceAOProperties(const char* device)
 {
-    DeviceAOProperties props;
+    DeviceAOProperties props {};
 
     NIDAQ::DAQmxGetDevAOPhysicalChans(device, props.physicalChans, sizeof(props.physicalChans));
-    NIDAQ::DAQmxGetDevAOSupportedOutputTypes(device, props.supportedOutputTypes, sizeof(props.supportedOutputTypes)/sizeof(int32));
+    NIDAQ::DAQmxGetDevAOSupportedOutputTypes(device, props.supportedOutputTypes, sizeof(props.supportedOutputTypes) / sizeof(NIDAQ::int32));
     NIDAQ::DAQmxGetDevAOMaxRate(device, &props.maxRate);
     NIDAQ::DAQmxGetDevAOMinRate(device, &props.minRate);
     NIDAQ::DAQmxGetDevAOSampClkSupported(device, &props.sampClkSupported);
     NIDAQ::DAQmxGetDevAONumSampTimingEngines(device, &props.numSampTimingEngines);
-    NIDAQ::DAQmxGetDevAOSampModes(device, props.sampModes, sizeof(props.sampModes)/sizeof(int32));
+    NIDAQ::DAQmxGetDevAOSampModes(device, props.sampModes, sizeof(props.sampModes) / sizeof(NIDAQ::int32));
     NIDAQ::DAQmxGetDevAONumSyncPulseSrcs(device, &props.numSyncPulseSrcs);
     NIDAQ::DAQmxGetDevAOTrigUsage(device, &props.trigUsage);
-    NIDAQ::DAQmxGetDevAOVoltageRngs(device, props.voltageRngs, sizeof(props.voltageRngs)/sizeof(NIDAQ::float64));
-    NIDAQ::DAQmxGetDevAOCurrentRngs(device, props.currentRngs, sizeof(props.currentRngs)/sizeof(NIDAQ::float64));
-    NIDAQ::DAQmxGetDevAOGains(device, props.gains, sizeof(props.gains)/sizeof(NIDAQ::float64));
+    NIDAQ::DAQmxGetDevAOVoltageRngs(device, props.voltageRngs, sizeof(props.voltageRngs) / sizeof(NIDAQ::float64));
+    NIDAQ::DAQmxGetDevAOCurrentRngs(device, props.currentRngs, sizeof(props.currentRngs) / sizeof(NIDAQ::float64));
+    NIDAQ::DAQmxGetDevAOGains(device, props.gains, sizeof(props.gains) / sizeof(NIDAQ::float64));
 
     return props;
 }
@@ -181,13 +182,12 @@ void NIDAQmx::connect()
 
 	String deviceName = device->getName();
 
-	if (deviceName == "SimulatedDevice")
+	if (deviceName == "Simulated")
 	{
-
 		device->isUSBDevice = false;
+		device->sampleRateRange = SettingsRange(1000.0f, 30000.0f);
 		device->voltageRanges.add(SettingsRange(-10.0f, 10.0f));
 		device->productName = String("No Device Detected");
-
 	}
 	else
 	{
@@ -213,12 +213,17 @@ void NIDAQmx::connect()
 		DeviceAOProperties aoProps = getDeviceAOProperties(STR2CHR(deviceName));
 		//aoProps.show();
 
-		/* Define available voltage ranges */
+		/* Define available voltage ranges (same pattern as nidaq-plugin DAQmxGetDevAIVoltageRngs) */
 		device->voltageRanges.clear();
-		for (int i = 0; i < sizeof(aoProps.voltageRngs)/sizeof(NIDAQ::float64); i+=2)
+		NIDAQ::float64 aoVoltageRngData[512] {};
+		NIDAQ::DAQmxGetDevAOVoltageRngs(STR2CHR(deviceName), &aoVoltageRngData[0], sizeof(aoVoltageRngData));
+		for (int i = 0; i < 512; i += 2)
 		{
-			if (abs(aoProps.voltageRngs[i]) < 1e-10) break;
-			device->voltageRanges.add(SettingsRange(aoProps.voltageRngs[i], aoProps.voltageRngs[i+1]));
+			NIDAQ::float64 vmin = aoVoltageRngData[i];
+			NIDAQ::float64 vmax = aoVoltageRngData[i + 1];
+			if (vmin == vmax || std::abs(vmin) < 1e-10 || vmax < 1e-2)
+				break;
+			device->voltageRanges.add(SettingsRange(vmin, vmax));
 		}
 
 		/* Configure analog output channels */
@@ -262,7 +267,7 @@ void NIDAQmx::connect()
 		char			errBuff[ERR_BUFF_SIZE] = { '\0' };
 
 		// Get ADC resolution for each voltage range (throwing error as is)
-		NIDAQ::TaskHandle adcResolutionQuery;
+		NIDAQ::TaskHandle adcResolutionQuery = 0;
 
 		NIDAQ::DAQmxCreateTask("ADCResolutionQuery", &adcResolutionQuery);
 
@@ -341,7 +346,7 @@ void NIDAQmx::connect()
 			}
 		}
 
-		device->sampleRateRange = SettingsRange(aoProps.maxRate, aoProps.maxRate);
+		device->sampleRateRange = SettingsRange(aoProps.minRate, aoProps.maxRate);
 
 		analogOutBuffer.reset();
 
