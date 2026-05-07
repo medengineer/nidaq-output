@@ -157,6 +157,14 @@ NIDAQmx::NIDAQmx(NIDAQDevice* device_)
 
 }
 
+SOURCE_TYPE NIDAQmx::getSourceTypeForOutput(int analogOutputIndex)
+{
+	const int n = aout.size();
+	if (analogOutputIndex < 0 || analogOutputIndex >= n)
+		return SOURCE_TYPE::RSE;
+	return aout[analogOutputIndex]->getSourceType();
+}
+
 DeviceAOProperties NIDAQmx::getDeviceAOProperties(const char* device)
 {
     DeviceAOProperties props {};
@@ -185,9 +193,44 @@ void NIDAQmx::connect()
 	if (deviceName == "Simulated")
 	{
 		device->isUSBDevice = false;
+		device->digitalWriteSize = 8;
 		device->sampleRateRange = SettingsRange(1000.0f, 30000.0f);
 		device->voltageRanges.add(SettingsRange(-10.0f, 10.0f));
 		device->productName = String("No Device Detected");
+
+		device->numAOChannels = 0;
+		device->numDOChannels = 0;
+		device->numDOPorts = 1;
+
+		aout.clear();
+		const auto rseTerminalCfg = (NIDAQ::int32) DAQmx_Val_Bit_TermCfg_RSE;
+		for (int i = 0; i < numActiveAnalogOutputs && i < MAX_NUM_ANALOG_OUTPUTS; ++i)
+		{
+			const String chanName(device->getName() + "/ao" + String(i));
+			aout.add(new AnalogOutput(chanName, rseTerminalCfg));
+			aout.getLast()->setAvailable(true);
+			aout.getLast()->setEnabled(true);
+			++device->numAOChannels;
+		}
+
+		dout.clear();
+		device->digitalPortNames.clear();
+		device->digitalPortStates.clear();
+
+		const String portPrefix = device->getName() + "/port0";
+		device->digitalPortNames.add(portPrefix.toStdString());
+		device->digitalPortStates.add(true);
+
+		for (int i = 0; i < numActiveDigitalOutputs; ++i)
+		{
+			const String lineName(portPrefix + "/line" + String(i));
+			dout.add(new OutputChannel(lineName));
+			dout.getLast()->setAvailable(true);
+			dout.getLast()->setEnabled(true);
+			++device->numDOChannels;
+		}
+
+		return;
 	}
 	else
 	{
@@ -547,7 +590,7 @@ void NIDAQmx::analogWrite(AudioBuffer<float>& buffer, int numSamples)
 		const float* channelData = buffer.getReadPointer(ch);
 		for (int sample = 0; sample < actualSamplesPerChannel; ++sample)
 		{
-			float inSample = channelData[sample];
+			float inSample = sample < numSamples ? channelData[sample] : 0.0f;
 			outputData[ch * actualSamplesPerChannel + sample] = static_cast<NIDAQ::float64>(inSample);
 		}
 	}
@@ -556,7 +599,7 @@ void NIDAQmx::analogWrite(AudioBuffer<float>& buffer, int numSamples)
 
 	writeCount++;
 
-	if (!isThreadRunning() && writeCount > 2) startThread();
+	if (!isThreadRunning()) startThread();
 
 Error:
 

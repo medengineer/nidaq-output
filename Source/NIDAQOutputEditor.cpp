@@ -299,19 +299,10 @@ void NIDAQOutputEditor::draw()
 
     desiredWidth = 240;
 
-	int nAO;
-	int nDO;
-
-	if (processor->getDeviceName() == "Simulated")
-	{
-		nAO = 2;
-		nDO = 8;
-	}
-	else
-	{
-		nAO = processor->getNumActiveAnalogOutputs();
-		nDO = processor->getNumActiveDigitalOutputs();
-	}
+	const int maxAO = juce::jmax(0, processor->getTotalAvailableAnalogOutputs());
+	const int maxDO = juce::jmax(0, processor->getTotalAvailableDigitalOutputs());
+	const int nAO = juce::jmin(processor->getNumActiveAnalogOutputs(), maxAO);
+	const int nDO = juce::jmin(processor->getNumActiveDigitalOutputs(), maxDO);
 
 	int maxChannelsPerColumn = 4;
 	int aoChannelsPerColumn = nAO > 0 && nAO < maxChannelsPerColumn ? nAO : maxChannelsPerColumn;
@@ -514,11 +505,13 @@ void NIDAQOutputEditor::buttonEvent(Button* button)
 
 void NIDAQOutputEditor::updateDevice(String deviceName)
 {
-    for (int i = 0; i < deviceSelectBox->getNumItems(); i++)
-    {
-        if (deviceSelectBox->getItemText(i).equalsIgnoreCase(processor->getDevices()[i]->productName))
-            deviceSelectBox->setSelectedId(deviceSelectBox->getItemId(i), sendNotification);
-    }
+	juce::ignoreUnused(deviceName);
+	if (deviceSelectBox != nullptr && processor != nullptr)
+	{
+		const int idx = processor->getDeviceIndex();
+		if (idx >= 0 && idx < deviceSelectBox->getNumItems())
+			deviceSelectBox->setSelectedId(idx + 1, dontSendNotification);
+	}
 
 	draw();
 }
@@ -639,6 +632,9 @@ void NIDAQOutputEditor::saveCustomParametersToXml(XmlElement* xml)
 
 void NIDAQOutputEditor::loadCustomParametersFromXml(XmlElement* xml)
 {
+	if (xml == nullptr)
+		return;
+
     processor->setDevice(xml->getStringAttribute("device", ""));
 	updateDevice(xml->getStringAttribute("device", ""));
 
@@ -697,7 +693,8 @@ void NIDAQOutputEditor::loadCustomParametersFromXml(XmlElement* xml)
 
 	String digitalPortStates = xml->getStringAttribute("digitalPortStates", "000");
 
-	for (int i = 0; i < digitalPortStates.length(); i++)
+	const int nPorts = processor->getNumPorts();
+	for (int i = 0; i < digitalPortStates.length() && i < nPorts; i++)
 		processor->setPortState(i, digitalPortStates[i] == '1');
 
 	draw();

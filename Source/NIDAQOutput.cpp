@@ -25,6 +25,20 @@
 #include "NIDAQOutput.h"
 #include "NIDAQOutputEditor.h"
 
+namespace
+{
+int getRequestedAnalogChannel(const var& root)
+{
+    if (root.hasProperty("pulse"))
+        return (int) root["pulse"].getProperty("analogOutputChannel", 0);
+    if (root.hasProperty("sine"))
+        return (int) root["sine"].getProperty("analogOutputChannel", 0);
+    if (root.hasProperty("custom"))
+        return (int) root["custom"].getProperty("analogOutputChannel", 0);
+    return 0;
+}
+}
+
 NIDAQOutput::NIDAQOutput() : GenericProcessor("NIDAQ Output")
 {
 
@@ -63,11 +77,29 @@ void NIDAQOutput::registerParameters()
 String NIDAQOutput::handleConfigMessage(const String& message)
 {
     LOGC("Got config message: ", message);
+    outputMode = CUSTOM_WAVEFORM;
 
     bool playImmediately = false;
     var root;
     if (JSON::parse(message, root).wasOk())
+    {
         playImmediately = static_cast<bool>(root.getProperty("playImmediately", var(false)));
+        const int requestedChannel = getRequestedAnalogChannel(root);
+        const int availableChannels = juce::jmax(1, (int) mNIDAQ->device->numAOChannels);
+        if (requestedChannel >= availableChannels)
+        {
+            MessageManager::callAsync([requestedChannel, availableChannels]() {
+                AlertWindow::showMessageBoxAsync(AlertWindow::WarningIcon,
+                                                 "NIDAQ Output",
+                                                 "Requested analog output channel AO" + String(requestedChannel)
+                                                     + ", but this device has only " + String(availableChannels)
+                                                     + " analog output channel(s).");
+            });
+            LOGE("Requested AO channel ", requestedChannel, " exceeds available channels: ", availableChannels);
+            outputEnabled = false;
+            return message;
+        }
+    }
 
     double sampleRate = AudioProcessor::getSampleRate();
     if (sampleRate == 0)
@@ -81,20 +113,19 @@ String NIDAQOutput::handleConfigMessage(const String& message)
         LOGC("Successfully parsed protocol and generated waveform at ", sampleRate, " Hz");
         // Update NIDAQ channel count to match waveform
         int numWaveformChannels = customWaveform->getNumChannels();
-        if (mNIDAQ->getNumActiveAnalogOutputs() != numWaveformChannels)
+        const int maxAoChannels = juce::jmax(1, (int) mNIDAQ->device->numAOChannels);
+        if (numWaveformChannels > maxAoChannels)
         {
-            // Stop thread if running
-            bool wasRunning = mNIDAQ->isThreadRunning();
-            if (wasRunning)
-            {
-                mNIDAQ->stopThread(1000);
-            }
-            
-            mNIDAQ->setNumActiveAnalogOutputs(numWaveformChannels);
-            mNIDAQ->startTasks(); // Reconfigure DAQmx task with new channel count
-            
-            // Thread will restart automatically when analogWrite is called
+            LOGC("Waveform requested ", numWaveformChannels,
+                 " AO channels but device supports ", maxAoChannels,
+                 ". Clamping to available channels.");
+            numWaveformChannels = maxAoChannels;
         }
+        else if (numWaveformChannels <= 0)
+        {
+            numWaveformChannels = 1;
+        }
+        juce::ignoreUnused(numWaveformChannels);
         if (playImmediately)
         {
             customWaveform->reset();
@@ -132,11 +163,12 @@ void NIDAQOutput::parameterValueChanged(Parameter* parameter)
 {
     if (parameter->getName() == "outputMode")
     {
-        if (parameter->getValue() == "MIRROR_INPUT")
+        const String mode = parameter->getValue().toString();
+        if (mode.equalsIgnoreCase("MIRROR_INPUT") || mode.equalsIgnoreCase("Mirror Input"))
         {
             outputMode = MIRROR_INPUT;
         }
-        else if (parameter->getValue() == "CUSTOM_WAVEFORM")
+        else if (mode.equalsIgnoreCase("CUSTOM_WAVEFORM") || mode.equalsIgnoreCase("Custom Waveform"))
         {
             outputMode = CUSTOM_WAVEFORM;
         }
@@ -174,13 +206,19 @@ void NIDAQOutput::setDevice(String name)
 
 int NIDAQOutput::openConnection()
 {
+	if (mNIDAQ != nullptr)
+	{
+		mNIDAQ->requestShutdown();
+		mNIDAQ->clearTasks();
+		mNIDAQ->stopThread(2000);
+	}
 
     mNIDAQ = new NIDAQmx(dm->getDeviceAtIndex(deviceIndex));
 
-    sampleRateIndex = mNIDAQ->sampleRates.size() - 1;
+    sampleRateIndex = juce::jmax(0, mNIDAQ->sampleRates.size() - 1);
     setSampleRate(sampleRateIndex);
 
-    voltageRangeIndex = mNIDAQ->device->voltageRanges.size() - 1;
+    voltageRangeIndex = juce::jmax(0, mNIDAQ->device->voltageRanges.size() - 1);
     setVoltageRange(voltageRangeIndex);
 
     return 0;
@@ -224,6 +262,9 @@ bool NIDAQOutput::startAcquisition()
     LOGD("Starting Tasks...");
 
     outputEnabled = false;
+
+    const int maxAoChannels = juce::jmax(1, (int) mNIDAQ->device->numAOChannels);
+    mNIDAQ->setNumActiveAnalogOutputs(maxAoChannels);
     
     lastSampleRate = AudioProcessor::getSampleRate();
     mNIDAQ->setAudioSampleRate(lastSampleRate);
@@ -313,7 +354,7 @@ void NIDAQOutput::process (AudioBuffer<float>& buffer)
             if (customWaveform->isFinished())
             {
                 // Write zeros to reset output before disabling
-                int numChannels = customWaveform->getNumChannels();
+                int numChannels = juce::jmax(1, mNIDAQ->getNumActiveAnalogOutputs());
                 AudioBuffer<float> zeroBuffer(numChannels, buffer.getNumSamples());
                 zeroBuffer.clear();
                 mNIDAQ->analogWrite(zeroBuffer, buffer.getNumSamples());
@@ -324,8 +365,8 @@ void NIDAQOutput::process (AudioBuffer<float>& buffer)
                 return;
             }
             
-            int numWaveformChannels = customWaveform->getNumChannels();
-            AudioBuffer<float> outputBuffer(numWaveformChannels, buffer.getNumSamples());
+            const int numOutputChannels = juce::jmax(1, mNIDAQ->getNumActiveAnalogOutputs());
+            AudioBuffer<float> outputBuffer(numOutputChannels, buffer.getNumSamples());
             customWaveform->fillBuffer(outputBuffer, buffer.getNumSamples());
             mNIDAQ->analogWrite(outputBuffer, buffer.getNumSamples());
         }
@@ -625,7 +666,7 @@ bool CustomWaveform::parseWavePlayer(const var& root)
     if (root.hasProperty("sine"))
     {
         const var& sine = root["sine"];
-        int channel = sine.getProperty("analogOutputChannel", 0);
+        int channel = sine.getProperty("analogOutputChannel", 1);
         double frequency = sine.getProperty("frequency", 5.0);
         int cycles = sine.getProperty("cycles", 1);
         int delayDuration = sine.getProperty("delayDuration", 0);
@@ -711,7 +752,7 @@ bool CustomWaveform::parseWavePlayer(const var& root)
     if (root.hasProperty("sine"))
     {
         const var& sine = root["sine"];
-        int channel = sine.getProperty("analogOutputChannel", 0);
+        int channel = sine.getProperty("analogOutputChannel", 1);
         double frequency = sine.getProperty("frequency", 5.0);
         int cycles = sine.getProperty("cycles", 1);
         int delayDuration = sine.getProperty("delayDuration", 0);

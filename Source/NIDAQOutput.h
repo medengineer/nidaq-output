@@ -140,7 +140,10 @@ public:
     int getTotalAvailableDigitalPorts() { return mNIDAQ->device->numDOPorts; };
     std::vector<int> getActiveDigitalPorts() { return mNIDAQ->getActiveDigitalPorts(); };
 
-    SOURCE_TYPE getSourceTypeForOutput(int outputIndex) { return mNIDAQ->getSourceTypeForOutput(outputIndex); };
+    SOURCE_TYPE getSourceTypeForOutput(int outputIndex)
+    {
+        return mNIDAQ != nullptr ? mNIDAQ->getSourceTypeForOutput(outputIndex) : SOURCE_TYPE::RSE;
+    };
 
     /** Set Analog channel enabled state */
     void setAnalogEnable(int id, bool enabled) { mNIDAQ->aout[id]->setEnabled(enabled); };

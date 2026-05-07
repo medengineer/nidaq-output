@@ -287,7 +287,7 @@ public:
 	SettingsRange getVoltageRange() { return device->voltageRanges[voltageRangeIndex]; };
 	void setVoltageRange(int index) { voltageRangeIndex = index; };
 
-	SOURCE_TYPE getSourceTypeForOutput(int analogOutputIndex) { return aout[analogOutputIndex]->getSourceType(); };
+	SOURCE_TYPE getSourceTypeForOutput(int analogOutputIndex);
 	void toggleSourceType(int analogOutputIndex) { aout[analogOutputIndex]->setNextSourceType(); }
 
 	void setNumActiveAnalogOutputs(int numActiveAnalogOutputs_) { numActiveAnalogOutputs = numActiveAnalogOutputs_; };
