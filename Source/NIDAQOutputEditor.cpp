@@ -451,6 +451,19 @@ void NIDAQOutputEditor::comboBoxChanged(ComboBox* comboBoxThatHasChanged)
         processor->setDevice(processor->getDevices()[deviceIndex]->getName());
         CoreServices::updateSignalChain(this);
     }
+    else if (comboBoxThatHasChanged == sampleRateSelectBox)
+    {
+        const int sampleRateIndex = sampleRateSelectBox->getSelectedItemIndex();
+        LOGD("NIDAQOutputEditor::comboBoxChanged sample-rate dropdown selected index=",
+             sampleRateIndex,
+             ", text=", sampleRateSelectBox->getText());
+        processor->setSampleRate(sampleRateIndex);
+        LOGC("Selected analog output sample rate: ", processor->getAnalogOutputSampleRate(), " Hz");
+    }
+    else if (comboBoxThatHasChanged == voltageRangeSelectBox)
+    {
+        processor->setVoltageRange(voltageRangeSelectBox->getSelectedItemIndex());
+    }
 }
 
 void NIDAQOutputEditor::buttonClicked(Button* button)
@@ -617,7 +630,7 @@ void PopupConfigurationWindow::buttonClicked(juce::Button* button)
 void NIDAQOutputEditor::saveCustomParametersToXml(XmlElement* xml)
 {
     xml->setAttribute("device", processor->getDeviceName());
-    xml->setAttribute("sampleRate", processor->getAudioSampleRate());
+    xml->setAttribute("sampleRate", processor->getAnalogOutputSampleRate());
 	xml->setAttribute("voltageRange", processor->getVoltageRangeIndex());
 
 	xml->setAttribute("numAnalog", getNumActiveAnalogOutputs());

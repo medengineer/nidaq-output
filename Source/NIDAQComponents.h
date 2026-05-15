@@ -282,7 +282,15 @@ public:
 
 	/* Analog configuration */
 	NIDAQ::float64 getSampleRate() { return sampleRates[sampleRateIndex]; };
-	void setSampleRate(int index) { sampleRateIndex = index; };
+	void setSampleRate(int index)
+	{
+		const int previousIndex = sampleRateIndex;
+		sampleRateIndex = juce::jlimit(0, sampleRates.size() - 1, index);
+		LOGD("NIDAQmx::setSampleRate requested index=", index,
+			 ", previous index=", previousIndex,
+			 ", selected index=", sampleRateIndex,
+			 ", selected AO rate=", getSampleRate());
+	};
 
 	SettingsRange getVoltageRange() { return device->voltageRanges[voltageRangeIndex]; };
 	void setVoltageRange(int index) { voltageRangeIndex = index; };
@@ -310,11 +318,13 @@ public:
 	int getDefaultOutputPort() { return defaultOutputPort; };
 	std::vector<int> getActiveDigitalPorts() { return activeDigitalPorts; };
 
-	void startTasks();
+	void startTasks(bool startAnalogTask = true);
 	void clearTasks();
+	void clearAnalogTask();
 	void requestShutdown();
 
 	void analogWrite(AudioBuffer<float>& buffer, int numSamples);
+	void writeAnalogWaveform(const AudioBuffer<float>& buffer);
 	void digitalWrite(int channelIdx, bool state);
 
 	void run() override;
@@ -329,7 +339,7 @@ public:
 	OwnedArray<AnalogOutput> 	aout;
 	OwnedArray<OutputChannel> 	dout;
 
-	NIDAQ::TaskHandle taskHandleAO;
+	NIDAQ::TaskHandle taskHandleAO = 0;
 	std::vector<NIDAQ::TaskHandle> taskHandlesDO;
 
 private:

@@ -414,7 +414,7 @@ Error:
 
 }
 
-void NIDAQmx::startTasks()
+void NIDAQmx::startTasks(bool startAnalogTask)
 {
 
 	StringArray port_list;
@@ -427,30 +427,33 @@ void NIDAQmx::startTasks()
     NIDAQ::int32 activeEdge = DAQmx_Val_Rising;
    	NIDAQ::int32 sampleMode = DAQmx_Val_ContSamps;
 
-    // Create an analog output task
-    if (device->isUSBDevice)
-		DAQmxErrChk(NIDAQ::DAQmxCreateTask("AOTask_USB", &taskHandleAO));
-	else
-		DAQmxErrChk(NIDAQ::DAQmxCreateTask("AOTask_PXI", &taskHandleAO));
+	if (startAnalogTask)
+	{
+		// Create an analog output task
+		if (device->isUSBDevice)
+			DAQmxErrChk(NIDAQ::DAQmxCreateTask("AOTask_USB", &taskHandleAO));
+		else
+			DAQmxErrChk(NIDAQ::DAQmxCreateTask("AOTask_PXI", &taskHandleAO));
 
-    // Create analog output channels for ao0 and ao1
-	DAQmxErrChk(NIDAQ::DAQmxCreateAOVoltageChan(
-		taskHandleAO,
-		STR2CHR(device->getName() + "/ao0:" + String(numActiveAnalogOutputs - 1)), 
-		"", -10.0, 10.0,
-		DAQmx_Val_Volts,
-		nullptr)
-	);
+		// Create analog output channels for ao0 and ao1
+		DAQmxErrChk(NIDAQ::DAQmxCreateAOVoltageChan(
+			taskHandleAO,
+			STR2CHR(device->getName() + "/ao0:" + String(numActiveAnalogOutputs - 1)), 
+			"", -10.0, 10.0,
+			DAQmx_Val_Volts,
+			nullptr)
+		);
 
-    // Configure the sample clock timing for the analog task
-    DAQmxErrChk(NIDAQ::DAQmxCfgSampClkTiming(
-		taskHandleAO,
-		"", 
-		getSampleRate(),
-		activeEdge, 
-		sampleMode, 
-		samplesPerChannel)
-	);
+		// Configure the sample clock timing for the analog task
+		DAQmxErrChk(NIDAQ::DAQmxCfgSampClkTiming(
+			taskHandleAO,
+			"", 
+			getSampleRate(),
+			activeEdge, 
+			sampleMode, 
+			samplesPerChannel)
+		);
+	}
 
 	char ports[2048];
 	NIDAQ::DAQmxGetDevDOPorts(STR2CHR(device->getName()), &ports[0], sizeof(ports));
@@ -511,10 +514,11 @@ void NIDAQmx::startTasks()
 
 	}
 
-	// Start both analog and digital output tasks
-    DAQmxErrChk(NIDAQ::DAQmxStartTask(taskHandleAO));
+	// Start analog and digital output tasks
+	if (taskHandleAO > 0)
+		DAQmxErrChk(NIDAQ::DAQmxStartTask(taskHandleAO));
 	for (auto& taskHandleDO : taskHandlesDO)
-		DAQmxErrChk(NIDAQ::DAQmxStartTask(taskHandlesDO[0]));
+		DAQmxErrChk(NIDAQ::DAQmxStartTask(taskHandleDO));
 
 Error:
 
@@ -541,12 +545,7 @@ void NIDAQmx::clearTasks()
 	NIDAQ::int32	error = 0;
 	char			errBuff[ERR_BUFF_SIZE] = { '\0' };
 
-	if (taskHandleAO > 0)
-	{
-		NIDAQ::DAQmxStopTask(taskHandleAO);
-		NIDAQ::DAQmxClearTask(taskHandleAO);
-		taskHandleAO = 0;
-	}
+	clearAnalogTask();
 
 	if (taskHandlesDO.size() > 0)
 	{
@@ -570,6 +569,30 @@ Error:
 	return;
 }
 
+void NIDAQmx::clearAnalogTask()
+{
+
+	NIDAQ::int32	error = 0;
+	char			errBuff[ERR_BUFF_SIZE] = { '\0' };
+
+	if (taskHandleAO > 0)
+	{
+		NIDAQ::DAQmxStopTask(taskHandleAO);
+		NIDAQ::DAQmxClearTask(taskHandleAO);
+		taskHandleAO = 0;
+	}
+
+Error:
+
+	if (DAQmxFailed(error))
+		NIDAQ::DAQmxGetExtendedErrorInfo(errBuff, ERR_BUFF_SIZE);
+
+	if (DAQmxFailed(error))
+		LOGE("DAQmx Error: ", errBuff);
+	fflush(stdout);
+
+	return;
+}
 void NIDAQmx::analogWrite(AudioBuffer<float>& buffer, int numSamples)
 {
 	NIDAQ::int32 error = 0;
@@ -614,6 +637,99 @@ Error:
 
 }
 
+void NIDAQmx::writeAnalogWaveform(const AudioBuffer<float>& buffer)
+{
+	NIDAQ::int32 error = 0;
+	NIDAQ::int32 numSamplesWritten = 0;
+	NIDAQ::float64 timeout = 10.0;
+	char errBuff[2048] = { '\0' };
+
+	if (!buffer.getNumChannels() || !buffer.getNumSamples())
+		return;
+
+	if (isThreadRunning())
+	{
+		requestShutdown();
+		stopThread(2000);
+		analogOutBuffer = std::make_unique<CircularBuffer<double>>(200000);
+	}
+
+	clearAnalogTask();
+
+	const int numChannels = juce::jmin(buffer.getNumChannels(), (int) device->numAOChannels);
+	const int numSamples = buffer.getNumSamples();
+	if (numChannels <= 0)
+		return;
+	setNumActiveAnalogOutputs(numChannels);
+	LOGD("NIDAQmx::writeAnalogWaveform configuring finite AO task with sampleRate=", getSampleRate(),
+		 ", bufferChannels=", buffer.getNumChannels(),
+		 ", deviceAOChannels=", device->numAOChannels,
+		 ", channelsWritten=", numChannels,
+		 ", samplesPerChannel=", numSamples);
+	HeapBlock<NIDAQ::float64> outputData(numChannels * numSamples);
+
+	// DAQmx_Val_GroupByChannel: all samples for ch0, then all samples for ch1
+	for (int ch = 0; ch < numChannels; ++ch)
+	{
+		const float* channelData = buffer.getReadPointer(ch);
+		for (int sample = 0; sample < numSamples; ++sample)
+			outputData[ch * numSamples + sample] = static_cast<NIDAQ::float64>(channelData[sample]);
+	}
+
+	if (device->isUSBDevice)
+		DAQmxErrChk(NIDAQ::DAQmxCreateTask("AOTask_USB_Finite", &taskHandleAO));
+	else
+		DAQmxErrChk(NIDAQ::DAQmxCreateTask("AOTask_PXI_Finite", &taskHandleAO));
+
+	DAQmxErrChk(NIDAQ::DAQmxCreateAOVoltageChan(
+		taskHandleAO,
+		STR2CHR(device->getName() + "/ao0:" + String(numChannels - 1)),
+		"", -10.0, 10.0,
+		DAQmx_Val_Volts,
+		nullptr)
+	);
+
+	DAQmxErrChk(NIDAQ::DAQmxCfgSampClkTiming(
+		taskHandleAO,
+		"",
+		getSampleRate(),
+		DAQmx_Val_Rising,
+		DAQmx_Val_FiniteSamps,
+		numSamples)
+	);
+
+
+	DAQmxErrChk(NIDAQ::DAQmxWriteAnalogF64(
+		taskHandleAO,
+		numSamples,
+		0,
+		timeout,
+		DAQmx_Val_GroupByChannel,
+		outputData,
+		&numSamplesWritten,
+		NULL
+	));
+	LOGD("NIDAQmx::writeAnalogWaveform wrote samplesPerChannel=", numSamplesWritten,
+		 ", configuredSampleRate=", getSampleRate());
+
+	DAQmxErrChk(NIDAQ::DAQmxStartTask(taskHandleAO));
+
+	LOGC("Started finite analog waveform: channels=", numChannels,
+		 ", samples=", numSamples,
+		 ", sampleRate=", getSampleRate(),
+		 ", duration=", numSamples / getSampleRate(), " seconds");
+
+Error:
+
+	if (DAQmxFailed(error))
+		NIDAQ::DAQmxGetExtendedErrorInfo(errBuff, ERR_BUFF_SIZE);
+
+	if (DAQmxFailed(error))
+		LOGE("DAQmx Error: ", errBuff);
+	fflush(stdout);
+
+	return;
+}
 void NIDAQmx::addEvent(int64 sampleNumber, uint8 ttlLine, bool state)
 {
 	//TODO: Buffer events for synchronization

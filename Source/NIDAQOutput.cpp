@@ -37,6 +37,36 @@ int getRequestedAnalogChannel(const var& root)
         return (int) root["custom"].getProperty("analogOutputChannel", 0);
     return 0;
 }
+
+int millisecondsToSamples(double milliseconds, double sampleRate)
+{
+    return juce::jmax(0, static_cast<int>((milliseconds * sampleRate / 1000.0) + 0.5));
+}
+
+bool isCosineRampProfile(const String& rampProfile)
+{
+    return rampProfile.equalsIgnoreCase("cosine")
+        || rampProfile.equalsIgnoreCase("raisedCosine")
+        || rampProfile.equalsIgnoreCase("raised_cosine");
+}
+
+float raisedCosineRampOn(float maxVoltage, int sample, int rampSamples)
+{
+    if (rampSamples <= 0)
+        return maxVoltage;
+
+    const double progress = juce::jlimit(0.0, 1.0, static_cast<double>(sample) / rampSamples);
+    return 0.5f * maxVoltage * static_cast<float>(1.0 - std::cos(MathConstants<double>::pi * progress));
+}
+
+float raisedCosineRampOff(float maxVoltage, int sampleIntoRamp, int rampSamples)
+{
+    if (rampSamples <= 0)
+        return maxVoltage;
+
+    const double progress = juce::jlimit(0.0, 1.0, static_cast<double>(sampleIntoRamp) / rampSamples);
+    return 0.5f * maxVoltage * static_cast<float>(1.0 + std::cos(MathConstants<double>::pi * progress));
+}
 }
 
 NIDAQOutput::NIDAQOutput() : GenericProcessor("NIDAQ Output")
@@ -101,12 +131,8 @@ String NIDAQOutput::handleConfigMessage(const String& message)
         }
     }
 
-    double sampleRate = AudioProcessor::getSampleRate();
-    if (sampleRate == 0)
-    {
-        LOGC("Audio sample rate not set yet, using NIDAQ device sample rate");
-        sampleRate = mNIDAQ->getSampleRate();
-    }
+    double sampleRate = mNIDAQ->getSampleRate();
+    LOGD("NIDAQOutput::handleConfigMessage parsing custom waveform with AO sampleRate=", sampleRate);
 
     if (customWaveform->parseProtocol(message, sampleRate))
     {
@@ -126,15 +152,11 @@ String NIDAQOutput::handleConfigMessage(const String& message)
             numWaveformChannels = 1;
         }
         juce::ignoreUnused(numWaveformChannels);
-        if (playImmediately)
-        {
-            customWaveform->reset();
-            outputEnabled = true;
-            LOGC("Output enabled immediately (playImmediately=true)");
-            LOGC("Total waveform samples: ", customWaveform->getTotalSamples(),
-                 " (duration: ", customWaveform->getTotalSamples() / AudioProcessor::getSampleRate(), " seconds)");
-            LOGC("Looping: ", customWaveform->isLooping() ? "enabled" : "disabled");
-        }
+        playCustomWaveform();
+        LOGC("Output enabled from received waveform config", playImmediately ? " (playImmediately=true)" : "");
+        LOGC("Total waveform samples: ", customWaveform->getTotalSamples(),
+             " (duration: ", customWaveform->getTotalSamples() / mNIDAQ->getSampleRate(), " seconds)");
+        LOGC("Looping: ", customWaveform->isLooping() ? "enabled" : "disabled");
     }
     else
     {
@@ -150,12 +172,26 @@ void NIDAQOutput::handleBroadcastMessage(const String& msg, const int64 messageT
     // Assume message is a flag to trigger the custom_waveform to start
     if (msg == "enable_output")
     {
-        customWaveform->reset();
-        outputEnabled = true;
+        playCustomWaveform();
         LOGC("Output enabled, waveform reset to start");
         LOGC("Total waveform samples: ", customWaveform->getTotalSamples(), 
-             " (duration: ", customWaveform->getTotalSamples() / AudioProcessor::getSampleRate(), " seconds)");
+             " (duration: ", customWaveform->getTotalSamples() / mNIDAQ->getSampleRate(), " seconds)");
         LOGC("Looping: ", customWaveform->isLooping() ? "enabled" : "disabled");
+    }
+}
+
+void NIDAQOutput::playCustomWaveform()
+{
+    if (customWaveform != nullptr && customWaveform->isValid())
+    {
+        customWaveform->reset();
+        outputEnabled = true;
+        mNIDAQ->writeAnalogWaveform(customWaveform->getBuffer());
+    }
+    else
+    {
+        LOGE("Cannot play custom waveform: waveform is not valid");
+        outputEnabled = false;
     }
 }
 
@@ -227,8 +263,23 @@ int NIDAQOutput::openConnection()
 
 void NIDAQOutput::setSampleRate(int rateIndex)
 {
+    const int previousIndex = sampleRateIndex;
+    const double previousRate = mNIDAQ->getSampleRate();
     sampleRateIndex = rateIndex;
     mNIDAQ->setSampleRate(rateIndex);
+    sampleRateIndex = mNIDAQ->sampleRates.indexOf(mNIDAQ->getSampleRate());
+    LOGD("NIDAQOutput::setSampleRate requested index=", rateIndex,
+         ", previous index=", previousIndex,
+         ", previous AO rate=", previousRate,
+         ", selected index=", sampleRateIndex,
+         ", selected AO rate=", mNIDAQ->getSampleRate());
+    LOGC("Analog output sample rate set to: ", mNIDAQ->getSampleRate(), " Hz");
+
+    if (customWaveform != nullptr && customWaveform->isValid())
+    {
+        customWaveform->regenerateWithNewSampleRate(mNIDAQ->getSampleRate());
+        LOGC("Regenerated custom waveform at analog output sample rate: ", mNIDAQ->getSampleRate(), " Hz");
+    }
 }
 
 Array<SettingsRange> NIDAQOutput::getVoltageRanges()
@@ -266,11 +317,11 @@ bool NIDAQOutput::startAcquisition()
     const int maxAoChannels = juce::jmax(1, (int) mNIDAQ->device->numAOChannels);
     mNIDAQ->setNumActiveAnalogOutputs(maxAoChannels);
     
-    lastSampleRate = AudioProcessor::getSampleRate();
-    mNIDAQ->setAudioSampleRate(lastSampleRate);
-    LOGC("Set audio sample rate: ", lastSampleRate);
+    lastSampleRate = mNIDAQ->getSampleRate();
+    mNIDAQ->setAudioSampleRate(AudioProcessor::getSampleRate());
+    LOGC("Set analog output sample rate: ", lastSampleRate);
     
-    mNIDAQ->startTasks();
+    mNIDAQ->startTasks(outputMode == MIRROR_INPUT);
     
     // Load default waveform if none configured
     if (!customWaveform->isValid())
@@ -299,7 +350,7 @@ bool NIDAQOutput::startAcquisition()
             }]
         })";
         
-        if (customWaveform->parseProtocol(defaultProtocol, lastSampleRate))
+        if (customWaveform->parseProtocol(defaultProtocol, mNIDAQ->getSampleRate()))
         {
             LOGC("Loaded default custom waveform: 4-step ramp, 3 cycles (300ms total)");
             LOGC("Output sample rate: ", lastSampleRate);
@@ -326,18 +377,13 @@ void NIDAQOutput::process (AudioBuffer<float>& buffer)
 
     outputMode = getOutputMode();
     
-    // Check if sample rate changed and regenerate waveform if needed
+    // Mirror Input follows the incoming audio stream; custom waveforms are generated at the NI AO sample rate.
     double currentSampleRate = AudioProcessor::getSampleRate();
-    if (currentSampleRate != lastSampleRate && currentSampleRate > 0)
+    if (outputMode == MIRROR_INPUT && currentSampleRate != lastSampleRate && currentSampleRate > 0)
     {
         lastSampleRate = currentSampleRate;
         mNIDAQ->setAudioSampleRate(currentSampleRate);
         LOGC("Sample rate changed to: ", currentSampleRate);
-        
-        if (outputMode == CUSTOM_WAVEFORM && customWaveform->isValid())
-        {
-            customWaveform->regenerateWithNewSampleRate(currentSampleRate);
-        }
     }
 
     if (!outputEnabled) return;
@@ -348,36 +394,8 @@ void NIDAQOutput::process (AudioBuffer<float>& buffer)
     }
     else if (outputMode == CUSTOM_WAVEFORM)
     {
-        if (customWaveform->isValid())
-        {
-            // Check if waveform is finished
-            if (customWaveform->isFinished())
-            {
-                // Write zeros to reset output before disabling
-                int numChannels = juce::jmax(1, mNIDAQ->getNumActiveAnalogOutputs());
-                AudioBuffer<float> zeroBuffer(numChannels, buffer.getNumSamples());
-                zeroBuffer.clear();
-                mNIDAQ->analogWrite(zeroBuffer, buffer.getNumSamples());
-                
-                outputEnabled = false;
-                LOGC("Waveform finished after ", customWaveform->getCurrentSample(), " samples");
-                LOGC("Output disabled and reset to 0");
-                return;
-            }
-            
-            const int numOutputChannels = juce::jmax(1, mNIDAQ->getNumActiveAnalogOutputs());
-            AudioBuffer<float> outputBuffer(numOutputChannels, buffer.getNumSamples());
-            customWaveform->fillBuffer(outputBuffer, buffer.getNumSamples());
-            mNIDAQ->analogWrite(outputBuffer, buffer.getNumSamples());
-        }
-        else
-        {
-            static int emptyLogCounter = 0;
-            if (emptyLogCounter++ % 1000 == 0)
-            {
-                LOGE("CustomWaveform is not valid!");
-            }
-        }
+        // Custom waveforms are written as finite AO tasks when configured or triggered.
+        // Do not stream them from process(), because process() is clocked by the GUI/audio callback.
     }
 }
 
@@ -401,6 +419,7 @@ bool CustomWaveform::parseProtocol(const String& jsonString, double sRate)
     currentSample = 0;
     lastProtocolJson = jsonString;
     shouldLoop = false;
+    LOGD("CustomWaveform::parseProtocol using sampleRate=", sampleRate);
     
     var root;
     Result result = JSON::parse(jsonString, root);
@@ -631,9 +650,9 @@ bool CustomWaveform::parseProtocol(const String& jsonString, double sRate)
 
 bool CustomWaveform::parseWavePlayer(const var& root)
 {
-    double sourceSampleRate = root.getProperty("sampleRate", 30000.0);
     double maxVoltage = root.getProperty("maxVoltage", 5.0);
-    double ratio = sampleRate / sourceSampleRate;
+    LOGD("CustomWaveform::parseWavePlayer using AO sampleRate=", sampleRate,
+         " Hz; WavePlayer duration fields are interpreted as milliseconds.");
     
     // Collect all enabled patterns and determine max channel and total samples
     struct PatternInfo {
@@ -648,15 +667,24 @@ bool CustomWaveform::parseWavePlayer(const var& root)
     {
         const var& pulse = root["pulse"];
         int channel = pulse.getProperty("analogOutputChannel", 0);
-        int onDuration = pulse.getProperty("onDuration", 100);
-        int offDuration = pulse.getProperty("offDuration", 100);
-        int delayDuration = pulse.getProperty("delayDuration", 0);
+        double onDuration = pulse.getProperty("onDuration", 100.0);
+        double offDuration = pulse.getProperty("offDuration", 100.0);
+        double delayDuration = pulse.getProperty("delayDuration", 0.0);
         int repeatNumber = pulse.getProperty("repeatNumber", 1);
         
-        int delayOut = static_cast<int>(delayDuration * ratio);
-        int onOut = static_cast<int>(onDuration * ratio);
-        int offOut = static_cast<int>(offDuration * ratio);
+        int delayOut = millisecondsToSamples(delayDuration, sampleRate);
+        int onOut = millisecondsToSamples(onDuration, sampleRate);
+        int offOut = millisecondsToSamples(offDuration, sampleRate);
         int samples = delayOut + repeatNumber * (onOut + offOut);
+        LOGD("WavePlayer pulse sizing: channel=", channel,
+             ", delayMs=", delayDuration,
+             ", onMs=", onDuration,
+             ", offMs=", offDuration,
+             ", repeatNumber=", repeatNumber,
+             ", delaySamples=", delayOut,
+             ", onSamples=", onOut,
+             ", offSamples=", offOut,
+             ", totalSamples=", samples);
         
         patterns.push_back({channel, samples});
         numChannels = jmax(numChannels, channel + 1);
@@ -669,11 +697,18 @@ bool CustomWaveform::parseWavePlayer(const var& root)
         int channel = sine.getProperty("analogOutputChannel", 1);
         double frequency = sine.getProperty("frequency", 5.0);
         int cycles = sine.getProperty("cycles", 1);
-        int delayDuration = sine.getProperty("delayDuration", 0);
+        double delayDuration = sine.getProperty("delayDuration", 0.0);
         
-        int delayOut = static_cast<int>(delayDuration * ratio);
-        int samplesPerCycle = static_cast<int>(sampleRate / frequency);
+        int delayOut = millisecondsToSamples(delayDuration, sampleRate);
+        int samplesPerCycle = frequency > 0.0 ? static_cast<int>((sampleRate / frequency) + 0.5) : 0;
         int samples = delayOut + cycles * samplesPerCycle;
+        LOGD("WavePlayer sine sizing: channel=", channel,
+             ", delayMs=", delayDuration,
+             ", frequency=", frequency,
+             ", cycles=", cycles,
+             ", delaySamples=", delayOut,
+             ", samplesPerCycle=", samplesPerCycle,
+             ", totalSamples=", samples);
         
         patterns.push_back({channel, samples});
         numChannels = jmax(numChannels, channel + 1);
@@ -707,45 +742,80 @@ bool CustomWaveform::parseWavePlayer(const var& root)
     waveformBuffer.setSize(numChannels, totalSamples);
     waveformBuffer.clear();
     
-    LOGC("parseWavePlayer: numChannels=", numChannels, ", totalSamples=", totalSamples);
+    LOGD("parseWavePlayer: numChannels=", numChannels,
+         ", totalSamples=", totalSamples,
+         ", sampleRate=", sampleRate,
+         ", durationSeconds=", totalSamples / sampleRate);
     
     // Generate pulse waveform
     if (root.hasProperty("pulse"))
     {
         const var& pulse = root["pulse"];
         int channel = pulse.getProperty("analogOutputChannel", 0);
-        int onDuration = pulse.getProperty("onDuration", 100);
-        int offDuration = pulse.getProperty("offDuration", 100);
-        int delayDuration = pulse.getProperty("delayDuration", 0);
+        double onDuration = pulse.getProperty("onDuration", 100.0);
+        double offDuration = pulse.getProperty("offDuration", 100.0);
+        double delayDuration = pulse.getProperty("delayDuration", 0.0);
         int repeatNumber = pulse.getProperty("repeatNumber", 1);
-        int rampOnDuration = pulse.getProperty("rampOnDuration", 0);
-        int rampOffDuration = pulse.getProperty("rampOffDuration", 0);
+        double rampOnDuration = pulse.getProperty("rampOnDuration", 0.0);
+        double rampOffDuration = pulse.getProperty("rampOffDuration", 0.0);
         float pulseVoltage = pulse.getProperty("maxVoltage", maxVoltage);
+		String rampProfile = pulse.getProperty("rampProfile", "linear").toString();
         
-        int delayOut = static_cast<int>(delayDuration * ratio);
-        int onOut = static_cast<int>(onDuration * ratio);
-        int offOut = static_cast<int>(offDuration * ratio);
-        int rampOnOut = static_cast<int>(rampOnDuration * ratio);
-        int rampOffOut = static_cast<int>(rampOffDuration * ratio);
+        int delayOut = millisecondsToSamples(delayDuration, sampleRate);
+        int onOut = millisecondsToSamples(onDuration, sampleRate);
+        int offOut = millisecondsToSamples(offDuration, sampleRate);
+        int rampOnOut = millisecondsToSamples(rampOnDuration, sampleRate);
+        int rampOffOut = millisecondsToSamples(rampOffDuration, sampleRate);
+        const bool useCosineRamp = isCosineRampProfile(rampProfile);
+        
+        LOGD("Generating WavePlayer pulse: channel=", channel,
+             ", delayMs=", delayDuration,
+             ", onMs=", onDuration,
+             ", offMs=", offDuration,
+             ", rampOnMs=", rampOnDuration,
+             ", rampOffMs=", rampOffDuration,
+             ", delaySamples=", delayOut,
+             ", onSamples=", onOut,
+             ", offSamples=", offOut,
+             ", rampOnSamples=", rampOnOut,
+             ", rampOffSamples=", rampOffOut,
+             ", repeatNumber=", repeatNumber,
+			 ", rampProfile=", rampProfile,
+             ", useCosineRamp=", useCosineRamp ? "true" : "false",
+             ", sampleRate=", sampleRate);
         
         int pos = 0;
         for (int i = 0; i < delayOut; i++)
             waveformBuffer.setSample(channel, pos++, 0.0f);
-        
+
         for (int rep = 0; rep < repeatNumber; rep++)
         {
+
+            float lastVoltage = 0.0f;
+
             for (int i = 0; i < onOut; i++)
             {
                 float value = pulseVoltage;
                 if (rampOnOut > 0 && i < rampOnOut)
-                    value = pulseVoltage * (float(i) / rampOnOut);
+                    value = useCosineRamp
+                        ? raisedCosineRampOn(pulseVoltage, i, rampOnOut)
+                        : pulseVoltage * (float(i) / rampOnOut);
                 if (rampOffOut > 0 && i >= (onOut - rampOffOut))
-                    value = pulseVoltage * (float(onOut - i) / rampOffOut);
+                {
+                    const int sampleIntoRamp = i - (onOut - rampOffOut);
+                    value = useCosineRamp
+                        ? raisedCosineRampOff(pulseVoltage, sampleIntoRamp, rampOffOut)
+                        : pulseVoltage * (float(onOut - i) / rampOffOut);
+                }
                 waveformBuffer.setSample(channel, pos++, value);
+                lastVoltage = value;
             }
             for (int i = 0; i < offOut; i++)
                 waveformBuffer.setSample(channel, pos++, 0.0f);
+
+
         }
+
     }
     
     // Generate sine waveform
@@ -755,24 +825,32 @@ bool CustomWaveform::parseWavePlayer(const var& root)
         int channel = sine.getProperty("analogOutputChannel", 1);
         double frequency = sine.getProperty("frequency", 5.0);
         int cycles = sine.getProperty("cycles", 1);
-        int delayDuration = sine.getProperty("delayDuration", 0);
+        double delayDuration = sine.getProperty("delayDuration", 0.0);
         float sineVoltage = sine.getProperty("maxVoltage", maxVoltage);
         
-        int delayOut = static_cast<int>(delayDuration * ratio);
-        int samplesPerCycle = static_cast<int>(sampleRate / frequency);
+        int delayOut = millisecondsToSamples(delayDuration, sampleRate);
+        int samplesPerCycle = frequency > 0.0 ? static_cast<int>((sampleRate / frequency) + 0.5) : 0;
         
         int pos = 0;
         for (int i = 0; i < delayOut; i++)
             waveformBuffer.setSample(channel, pos++, 0.0f);
         
         int sineSamples = cycles * samplesPerCycle;
-        LOGC("Generating sine: channel=", channel, ", frequency=", frequency, ", cycles=", cycles, ", samplesPerCycle=", samplesPerCycle, ", totalSamples=", sineSamples);
+        LOGD("Generating WavePlayer raised cosine: channel=", channel,
+             ", delayMs=", delayDuration,
+             ", delaySamples=", delayOut,
+             ", frequency=", frequency,
+             ", cycles=", cycles,
+             ", samplesPerCycle=", samplesPerCycle,
+             ", totalSamples=", sineSamples,
+             ", sampleRate=", sampleRate);
         for (int i = 0; i < sineSamples && pos < totalSamples; i++)
         {
-            float value = sineVoltage * std::sin(2.0 * MathConstants<double>::pi * frequency * i / sampleRate);
+            const double phase = 2.0 * MathConstants<double>::pi * frequency * i / sampleRate;
+            float value = 0.5f * sineVoltage * static_cast<float>(1.0 - std::cos(phase));
             waveformBuffer.setSample(channel, pos++, value);
         }
-        LOGC("Sine waveform generated: wrote ", pos - delayOut, " samples to channel ", channel);
+        LOGD("Raised cosine waveform generated: wrote ", pos - delayOut, " samples to channel ", channel);
     }
     
     // Generate custom waveform

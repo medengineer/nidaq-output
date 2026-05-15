@@ -48,6 +48,7 @@ public:
     int getCurrentSample() const { return currentSample; }
     bool isLooping() const { return shouldLoop; }
     int getNumChannels() const { return numChannels; }
+    const AudioBuffer<float>& getBuffer() const { return waveformBuffer; }
     
 private:
     bool parseWavePlayer(const var& root);
@@ -104,7 +105,8 @@ public:
     Array<NIDAQ::float64> getSampleRates() { return mNIDAQ->sampleRates; };
 
     /** Get the current sample rate */
-    NIDAQ::float64 getAudioSampleRate() { return mNIDAQ->getSampleRate(); };
+    NIDAQ::float64 getAnalogOutputSampleRate() { return mNIDAQ->getSampleRate(); };
+    NIDAQ::float64 getAudioSampleRate() { return getAnalogOutputSampleRate(); };
     int getSampleRateIndex() { return sampleRateIndex; };
 
     /** Sets the sample rate of the data source. */
@@ -180,6 +182,7 @@ public:
     AudioProcessorEditor* createEditor() override;
 
 private:
+    void playCustomWaveform();
 
     /* Manages connected NIDAQ devices */
     ScopedPointer<NIDAQmxDeviceManager> dm;
